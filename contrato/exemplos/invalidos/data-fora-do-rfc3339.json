@@ -1,0 +1,16 @@
+{
+  "messageId": "f73e161c-b72d-5f1f-a892-7fc7db8e83dd",
+  "type": "OrcamentoGerado",
+  "version": 1,
+  "sagaId": "6f1c2a9e-3b7d-4c1e-9a2f-0d5e8b7c4a11",
+  "osId": 101,
+  "causationId": "11bb76b9-241d-58ad-8339-f51ff273f3a9",
+  "requestId": "req-feliz-a7c3e9",
+  "occurredAt": "07/10/2026 13:00",
+  "payload": {
+    "orcamentoId": "a3d5f7b9-1c2e-4f6a-8b0d-2e4f6a8c0e33",
+    "valorTotalCentavos": 45990,
+    "validoAte": "2026-10-14T13:00:02Z"
+  },
+  "_espera": "occurredAt e RFC 3339"
+}

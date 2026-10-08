@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/envelope.schema.json",
+  "title": "Envelope",
+  "description": "Envelope comum a todo comando e resposta da Saga. O corpo de negocio vai em payload; traceparent/tracestate NAO vao aqui (vao em MessageAttributes do SQS, ver tracing/propagacao-sqs.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["messageId", "type", "version", "sagaId", "osId", "causationId", "requestId", "occurredAt", "payload"],
+  "properties": {
+    "messageId": {
+      "description": "Identificador unico da mensagem e CHAVE DE IDEMPOTENCIA: o consumidor que ja processou este messageId descarta a entrega repetida.",
+      "$ref": "comum.schema.json#/definitions/uuid"
+    },
+    "type": {
+      "description": "Nome da mensagem; seleciona o schema do payload.",
+      "type": "string",
+      "enum": [
+        "GerarOrcamento", "CancelarOrcamento", "IniciarExecucao", "CancelarExecucao",
+        "OrcamentoGerado", "OrcamentoFalhou", "OrcamentoAprovado", "OrcamentoRecusado", "OrcamentoCancelado",
+        "ExecucaoIniciada", "ExecucaoFalhou", "ExecucaoFinalizada", "ExecucaoCancelada"
+      ]
+    },
+    "version": {
+      "description": "Versao do schema desta mensagem. Mudanca incompativel sobe a versao; o consumidor recusa versao que nao conhece (vai para a DLQ).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "sagaId": {
+      "description": "Instancia da Saga no orquestrador (OS Service). Uma OS pode ter mais de uma Saga ao longo da vida (ex.: refazer orcamento).",
+      "$ref": "comum.schema.json#/definitions/uuid"
+    },
+    "osId": {
+      "description": "Id da Ordem de Servico no OS Service.",
+      "$ref": "comum.schema.json#/definitions/idNumerico"
+    },
+    "causationId": {
+      "description": "messageId da mensagem que causou esta. Nulo apenas no comando que abre a Saga (GerarOrcamento), causado por requisicao HTTP.",
+      "oneOf": [{ "$ref": "comum.schema.json#/definitions/uuid" }, { "type": "null" }]
+    },
+    "requestId": {
+      "description": "Identificador de negocio da requisicao HTTP de origem (X-Request-Id, ADR-007 do monolito), repassado inalterado por toda a Saga.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "occurredAt": {
+      "description": "Instante em que o emissor produziu a mensagem (UTC, RFC 3339).",
+      "$ref": "comum.schema.json#/definitions/dataHora"
+    },
+    "payload": {
+      "description": "Corpo especifico do type; definido no schema de cada mensagem.",
+      "type": "object"
+    }
+  }
+}

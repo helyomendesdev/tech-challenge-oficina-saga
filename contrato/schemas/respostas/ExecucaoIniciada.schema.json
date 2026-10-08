@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/respostas/ExecucaoIniciada.schema.json",
+  "title": "ExecucaoIniciada",
+  "description": "Execucao -> OS Service: execucao aceita e iniciada.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "ExecucaoIniciada"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execucaoId",
+        "orcamentoId",
+        "iniciadaEm"
+      ],
+      "properties": {
+        "execucaoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "orcamentoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "iniciadaEm": {
+          "$ref": "../comum.schema.json#/definitions/dataHora"
+        }
+      }
+    }
+  }
+}

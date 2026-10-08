@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/comandos/IniciarExecucao.schema.json",
+  "title": "IniciarExecucao",
+  "description": "OS Service -> Execucao: iniciar a execucao do orcamento aprovado.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "IniciarExecucao"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "orcamentoId",
+        "servicos",
+        "pecas"
+      ],
+      "properties": {
+        "orcamentoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "servicos": {
+          "$ref": "../comum.schema.json#/definitions/itensServico"
+        },
+        "pecas": {
+          "$ref": "../comum.schema.json#/definitions/itensPeca"
+        }
+      }
+    }
+  }
+}

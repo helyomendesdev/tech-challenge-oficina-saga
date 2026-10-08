@@ -1,0 +1,290 @@
+asyncapi: 3.0.0
+info:
+  title: Oficina - Saga da Ordem de Servico
+  version: 0.1.0
+  description: |
+    Contrato v0.1 (RASCUNHO) da Saga orquestrada da Fase 4.
+    O orquestrador mora no OS Service; Billing e Execucao so recebem comandos
+    e devolvem respostas. As operacoes abaixo estao escritas do ponto de vista
+    do ORQUESTRADOR: Billing e Execucao implementam o espelho (recebem o
+    comando, enviam a resposta).
+
+    Envelope comum em schemas/envelope.schema.json; messageId e a chave de
+    idempotencia. Entrega SQS e "pelo menos uma vez": todo consumidor e
+    idempotente por messageId. traceparent/tracestate trafegam como
+    MessageAttributes (ver tracing/propagacao-sqs.md), modelados aqui como headers.
+defaultContentType: application/json
+
+servers:
+  aws:
+    host: sqs.us-east-1.amazonaws.com
+    protocol: sqs
+    description: SQS do AWS Academy Learner Lab (regiao a confirmar com a infra).
+
+channels:
+  billingComandos:
+    address: oficina-billing-comandos
+    description: Comandos do orquestrador para o Billing Service.
+    messages:
+      GerarOrcamento:
+        $ref: '#/components/messages/GerarOrcamento'
+      CancelarOrcamento:
+        $ref: '#/components/messages/CancelarOrcamento'
+    bindings:
+      sqs:
+        queue:
+          name: oficina-billing-comandos
+          fifoQueue: false
+          visibilityTimeout: 30
+          redrivePolicy:
+            deadLetterQueue:
+              name: oficina-billing-comandos-dlq
+            maxReceiveCount: 5
+        deadLetterQueue:
+          name: oficina-billing-comandos-dlq
+          fifoQueue: false
+          messageRetentionPeriod: 1209600
+        bindingVersion: 0.2.0
+  execucaoComandos:
+    address: oficina-execucao-comandos
+    description: Comandos do orquestrador para o Execution Service.
+    messages:
+      IniciarExecucao:
+        $ref: '#/components/messages/IniciarExecucao'
+      CancelarExecucao:
+        $ref: '#/components/messages/CancelarExecucao'
+    bindings:
+      sqs:
+        queue:
+          name: oficina-execucao-comandos
+          fifoQueue: false
+          visibilityTimeout: 30
+          redrivePolicy:
+            deadLetterQueue:
+              name: oficina-execucao-comandos-dlq
+            maxReceiveCount: 5
+        deadLetterQueue:
+          name: oficina-execucao-comandos-dlq
+          fifoQueue: false
+          messageRetentionPeriod: 1209600
+        bindingVersion: 0.2.0
+  osSagaRespostas:
+    address: oficina-os-saga-respostas
+    description: Respostas de Billing e Execucao para o orquestrador.
+    messages:
+      OrcamentoGerado:
+        $ref: '#/components/messages/OrcamentoGerado'
+      OrcamentoFalhou:
+        $ref: '#/components/messages/OrcamentoFalhou'
+      OrcamentoAprovado:
+        $ref: '#/components/messages/OrcamentoAprovado'
+      OrcamentoRecusado:
+        $ref: '#/components/messages/OrcamentoRecusado'
+      OrcamentoCancelado:
+        $ref: '#/components/messages/OrcamentoCancelado'
+      ExecucaoIniciada:
+        $ref: '#/components/messages/ExecucaoIniciada'
+      ExecucaoFalhou:
+        $ref: '#/components/messages/ExecucaoFalhou'
+      ExecucaoFinalizada:
+        $ref: '#/components/messages/ExecucaoFinalizada'
+      ExecucaoCancelada:
+        $ref: '#/components/messages/ExecucaoCancelada'
+    bindings:
+      sqs:
+        queue:
+          name: oficina-os-saga-respostas
+          fifoQueue: false
+          visibilityTimeout: 30
+          redrivePolicy:
+            deadLetterQueue:
+              name: oficina-os-saga-respostas-dlq
+            maxReceiveCount: 5
+        deadLetterQueue:
+          name: oficina-os-saga-respostas-dlq
+          fifoQueue: false
+          messageRetentionPeriod: 1209600
+        bindingVersion: 0.2.0
+
+operations:
+  enviarComandoBilling:
+    action: send
+    summary: Orquestrador pede ao Billing que gere ou cancele um orcamento.
+    channel:
+      $ref: '#/channels/billingComandos'
+    messages:
+      - $ref: '#/channels/billingComandos/messages/GerarOrcamento'
+      - $ref: '#/channels/billingComandos/messages/CancelarOrcamento'
+  enviarComandoExecucao:
+    action: send
+    summary: Orquestrador pede a Execucao que inicie ou cancele uma execucao.
+    channel:
+      $ref: '#/channels/execucaoComandos'
+    messages:
+      - $ref: '#/channels/execucaoComandos/messages/IniciarExecucao'
+      - $ref: '#/channels/execucaoComandos/messages/CancelarExecucao'
+  receberResposta:
+    action: receive
+    summary: Orquestrador consome as respostas e avanca a maquina de estados da Saga.
+    channel:
+      $ref: '#/channels/osSagaRespostas'
+    messages:
+      - $ref: '#/channels/osSagaRespostas/messages/OrcamentoGerado'
+      - $ref: '#/channels/osSagaRespostas/messages/OrcamentoFalhou'
+      - $ref: '#/channels/osSagaRespostas/messages/OrcamentoAprovado'
+      - $ref: '#/channels/osSagaRespostas/messages/OrcamentoRecusado'
+      - $ref: '#/channels/osSagaRespostas/messages/OrcamentoCancelado'
+      - $ref: '#/channels/osSagaRespostas/messages/ExecucaoIniciada'
+      - $ref: '#/channels/osSagaRespostas/messages/ExecucaoFalhou'
+      - $ref: '#/channels/osSagaRespostas/messages/ExecucaoFinalizada'
+      - $ref: '#/channels/osSagaRespostas/messages/ExecucaoCancelada'
+
+components:
+  messageTraits:
+    rastreio:
+      headers:
+        type: object
+        description: SQS MessageAttributes (DataType String). Nunca no corpo.
+        properties:
+          traceparent:
+            type: string
+            description: W3C Trace Context; span-id e o do PRODUTOR desta mensagem.
+            pattern: '^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+          tracestate:
+            type: string
+            description: W3C Trace Context, repassado sem alteracao.
+      correlationId:
+        description: Instancia da Saga.
+        location: $message.payload#/sagaId
+
+  messages:
+    GerarOrcamento:
+      name: GerarOrcamento
+      title: GerarOrcamento
+      summary: "OS Service -> Billing: gerar o orcamento da OS a partir do diagnostico."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/comandos/GerarOrcamento.schema.json'
+    CancelarOrcamento:
+      name: CancelarOrcamento
+      title: CancelarOrcamento
+      summary: "OS Service -> Billing: compensacao; invalida o orcamento (e estorna, se houver pagamento)."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/comandos/CancelarOrcamento.schema.json'
+    IniciarExecucao:
+      name: IniciarExecucao
+      title: IniciarExecucao
+      summary: "OS Service -> Execucao: iniciar a execucao do orcamento aprovado."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/comandos/IniciarExecucao.schema.json'
+    CancelarExecucao:
+      name: CancelarExecucao
+      title: CancelarExecucao
+      summary: "OS Service -> Execucao: compensacao; interrompe a execucao e devolve pecas reservadas."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/comandos/CancelarExecucao.schema.json'
+    OrcamentoGerado:
+      name: OrcamentoGerado
+      title: OrcamentoGerado
+      summary: "Billing -> OS Service: orcamento criado, aguardando aprovacao do cliente."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/OrcamentoGerado.schema.json'
+    OrcamentoFalhou:
+      name: OrcamentoFalhou
+      title: OrcamentoFalhou
+      summary: "Billing -> OS Service: nao foi possivel gerar o orcamento."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/OrcamentoFalhou.schema.json'
+    OrcamentoAprovado:
+      name: OrcamentoAprovado
+      title: OrcamentoAprovado
+      summary: "Billing -> OS Service: cliente aprovou o orcamento."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/OrcamentoAprovado.schema.json'
+    OrcamentoRecusado:
+      name: OrcamentoRecusado
+      title: OrcamentoRecusado
+      summary: "Billing -> OS Service: cliente recusou o orcamento."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/OrcamentoRecusado.schema.json'
+    OrcamentoCancelado:
+      name: OrcamentoCancelado
+      title: OrcamentoCancelado
+      summary: "Billing -> OS Service: confirmacao da compensacao CancelarOrcamento."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/OrcamentoCancelado.schema.json'
+    ExecucaoIniciada:
+      name: ExecucaoIniciada
+      title: ExecucaoIniciada
+      summary: "Execucao -> OS Service: execucao aceita e iniciada."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/ExecucaoIniciada.schema.json'
+    ExecucaoFalhou:
+      name: ExecucaoFalhou
+      title: ExecucaoFalhou
+      summary: "Execucao -> OS Service: execucao nao pode ser iniciada ou concluida; dispara compensacao."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/ExecucaoFalhou.schema.json'
+    ExecucaoFinalizada:
+      name: ExecucaoFinalizada
+      title: ExecucaoFinalizada
+      summary: "Execucao -> OS Service: todos os servicos concluidos e pecas utilizadas."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/ExecucaoFinalizada.schema.json'
+    ExecucaoCancelada:
+      name: ExecucaoCancelada
+      title: ExecucaoCancelada
+      summary: "Execucao -> OS Service: confirmacao da compensacao CancelarExecucao."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/ExecucaoCancelada.schema.json'

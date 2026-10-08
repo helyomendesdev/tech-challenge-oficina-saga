@@ -1,0 +1,14 @@
+{
+  "messageId": "fc1c3215-d9e8-5a4d-a83e-0143d3f1774c",
+  "type": "OrcamentoAprovado",
+  "version": 1,
+  "sagaId": "6f1c2a9e-3b7d-4c1e-9a2f-0d5e8b7c4a11",
+  "osId": 101,
+  "causationId": "f73e161c-b72d-5f1f-a892-7fc7db8e83dd",
+  "requestId": "req-feliz-a7c3e9",
+  "occurredAt": "2026-10-07T15:20:00Z",
+  "payload": {
+    "orcamentoId": "a3d5f7b9-1c2e-4f6a-8b0d-2e4f6a8c0e33",
+    "aprovadoEm": "2026-10-07T15:19:58Z"
+  }
+}

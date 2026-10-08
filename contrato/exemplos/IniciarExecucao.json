@@ -1,0 +1,25 @@
+{
+  "messageId": "c58d60bb-c94b-534e-b6e9-165a9da34d74",
+  "type": "IniciarExecucao",
+  "version": 1,
+  "sagaId": "6f1c2a9e-3b7d-4c1e-9a2f-0d5e8b7c4a11",
+  "osId": 101,
+  "causationId": "fc1c3215-d9e8-5a4d-a83e-0143d3f1774c",
+  "requestId": "req-feliz-a7c3e9",
+  "occurredAt": "2026-10-07T15:20:01Z",
+  "payload": {
+    "orcamentoId": "a3d5f7b9-1c2e-4f6a-8b0d-2e4f6a8c0e33",
+    "servicos": [
+      {
+        "servicoId": 12,
+        "quantidade": 1
+      }
+    ],
+    "pecas": [
+      {
+        "pecaId": 40,
+        "quantidade": 2
+      }
+    ]
+  }
+}

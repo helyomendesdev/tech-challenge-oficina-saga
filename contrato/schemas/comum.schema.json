@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/comum.schema.json",
+  "title": "Definicoes comuns",
+  "definitions": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "dataHora": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "idNumerico": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "erro": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codigo", "mensagem"],
+      "properties": {
+        "codigo": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "mensagem": { "type": "string", "minLength": 1, "maxLength": 500 }
+      }
+    },
+    "motivoCancelamento": {
+      "type": "string",
+      "enum": ["EXECUCAO_FALHOU", "CANCELADO_PELO_CLIENTE", "TIMEOUT"]
+    },
+    "itensServico": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["servicoId", "quantidade"],
+        "properties": {
+          "servicoId": { "$ref": "#/definitions/idNumerico" },
+          "quantidade": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "itensPeca": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pecaId", "quantidade"],
+        "properties": {
+          "pecaId": { "$ref": "#/definitions/idNumerico" },
+          "quantidade": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}
