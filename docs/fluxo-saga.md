@@ -14,13 +14,13 @@ sequenceDiagram
 
     Cliente->>OS: conclui diagnóstico (HTTP, X-Request-Id)
     Note over OS: Saga INICIADA
-    OS->>BIL: GerarOrcamento (oficina-billing-comandos)
+    OS->>BIL: GerarOrcamento (oficina-billing-comandos.fifo)
     Note over OS: ORCAMENTO_SOLICITADO
-    BIL-->>OS: OrcamentoGerado (oficina-os-saga-respostas)
+    BIL-->>OS: OrcamentoGerado (oficina-os-saga-respostas.fifo)
     Note over OS: AGUARDANDO_APROVACAO
     Cliente->>BIL: aprova o orçamento
     BIL-->>OS: OrcamentoAprovado
-    OS->>EXE: IniciarExecucao (oficina-execucao-comandos)
+    OS->>EXE: IniciarExecucao (oficina-execucao-comandos.fifo)
     Note over OS: EXECUCAO_SOLICITADA
     EXE-->>OS: ExecucaoIniciada
     Note over OS: EM_EXECUCAO
@@ -87,7 +87,7 @@ stateDiagram-v2
 
 Regras do orquestrador:
 
-- Resposta que não corresponde a uma transição válida do estado atual **não muda o estado**: é registrada e descartada (entrega repetida ou fora de ordem). Ver a questão sobre filas FIFO.
+- Resposta que não corresponde a uma transição válida do estado atual **não muda o estado**: é registrada e descartada (entrega repetida, por exemplo reprocessamento da DLQ). Com FIFO por `sagaId`, fora de ordem não acontece dentro de uma Saga.
 - Toda transição grava o estado novo e o próximo comando na mesma transação (outbox).
 - `OrcamentoFalhou` não precisa de compensação: nenhum orçamento foi criado.
 

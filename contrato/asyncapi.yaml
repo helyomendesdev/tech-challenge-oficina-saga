@@ -13,6 +13,10 @@ info:
     idempotencia. Entrega SQS e "pelo menos uma vez": todo consumidor e
     idempotente por messageId. traceparent/tracestate trafegam como
     MessageAttributes (ver tracing/propagacao-sqs.md), modelados aqui como headers.
+
+    Filas FIFO (ADR-001): todo envio usa MessageGroupId = sagaId (ordem por
+    Saga) e MessageDeduplicationId = messageId (deduplicacao de 5 min do SQS;
+    nao substitui a idempotencia do consumidor).
 defaultContentType: application/json
 
 servers:
@@ -23,7 +27,7 @@ servers:
 
 channels:
   billingComandos:
-    address: oficina-billing-comandos
+    address: oficina-billing-comandos.fifo
     description: Comandos do orquestrador para o Billing Service.
     messages:
       GerarOrcamento:
@@ -33,20 +37,22 @@ channels:
     bindings:
       sqs:
         queue:
-          name: oficina-billing-comandos
-          fifoQueue: false
+          name: oficina-billing-comandos.fifo
+          fifoQueue: true
+          deduplicationScope: messageGroup
+          fifoThroughputLimit: perMessageGroupId
           visibilityTimeout: 30
           redrivePolicy:
             deadLetterQueue:
-              name: oficina-billing-comandos-dlq
+              name: oficina-billing-comandos-dlq.fifo
             maxReceiveCount: 5
         deadLetterQueue:
-          name: oficina-billing-comandos-dlq
-          fifoQueue: false
+          name: oficina-billing-comandos-dlq.fifo
+          fifoQueue: true
           messageRetentionPeriod: 1209600
         bindingVersion: 0.2.0
   execucaoComandos:
-    address: oficina-execucao-comandos
+    address: oficina-execucao-comandos.fifo
     description: Comandos do orquestrador para o Execution Service.
     messages:
       IniciarExecucao:
@@ -56,20 +62,22 @@ channels:
     bindings:
       sqs:
         queue:
-          name: oficina-execucao-comandos
-          fifoQueue: false
+          name: oficina-execucao-comandos.fifo
+          fifoQueue: true
+          deduplicationScope: messageGroup
+          fifoThroughputLimit: perMessageGroupId
           visibilityTimeout: 30
           redrivePolicy:
             deadLetterQueue:
-              name: oficina-execucao-comandos-dlq
+              name: oficina-execucao-comandos-dlq.fifo
             maxReceiveCount: 5
         deadLetterQueue:
-          name: oficina-execucao-comandos-dlq
-          fifoQueue: false
+          name: oficina-execucao-comandos-dlq.fifo
+          fifoQueue: true
           messageRetentionPeriod: 1209600
         bindingVersion: 0.2.0
   osSagaRespostas:
-    address: oficina-os-saga-respostas
+    address: oficina-os-saga-respostas.fifo
     description: Respostas de Billing e Execucao para o orquestrador.
     messages:
       OrcamentoGerado:
@@ -93,16 +101,18 @@ channels:
     bindings:
       sqs:
         queue:
-          name: oficina-os-saga-respostas
-          fifoQueue: false
+          name: oficina-os-saga-respostas.fifo
+          fifoQueue: true
+          deduplicationScope: messageGroup
+          fifoThroughputLimit: perMessageGroupId
           visibilityTimeout: 30
           redrivePolicy:
             deadLetterQueue:
-              name: oficina-os-saga-respostas-dlq
+              name: oficina-os-saga-respostas-dlq.fifo
             maxReceiveCount: 5
         deadLetterQueue:
-          name: oficina-os-saga-respostas-dlq
-          fifoQueue: false
+          name: oficina-os-saga-respostas-dlq.fifo
+          fifoQueue: true
           messageRetentionPeriod: 1209600
         bindingVersion: 0.2.0
 

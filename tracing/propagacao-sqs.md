@@ -19,7 +19,13 @@ O schema dos atributos está no trait `rastreio` do [`asyncapi.yaml`](../contrat
 attrs = {"traceparent": {"DataType": "String", "StringValue": traceparent_do_span_atual()}}
 if tracestate:
     attrs["tracestate"] = {"DataType": "String", "StringValue": tracestate}
-sqs.send_message(QueueUrl=fila, MessageBody=json.dumps(envelope), MessageAttributes=attrs)
+sqs.send_message(
+    QueueUrl=fila,  # FIFO: ...-comandos.fifo / ...-respostas.fifo
+    MessageBody=json.dumps(envelope),
+    MessageAttributes=attrs,
+    MessageGroupId=envelope["sagaId"],
+    MessageDeduplicationId=envelope["messageId"],
+)
 ```
 
 - O `span-id` dentro do `traceparent` enviado é o do **span de envio** do produtor (span `PRODUCER`), não o da requisição HTTP que chegou.

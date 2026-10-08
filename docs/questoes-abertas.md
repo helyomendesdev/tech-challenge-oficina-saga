@@ -2,6 +2,8 @@
 
 Cada questão traz a recomendação atual. Fechada a questão, a decisão vai para um ADR e sai daqui.
 
+Já fechadas: filas FIFO (ADR-001, 2026-10-07).
+
 ## 1. Onde entra o pagamento do Mercado Pago na Saga
 
 O enunciado põe o Mercado Pago no Billing. Hoje a v0.1 não tem mensagem de pagamento: `OrcamentoAprovado` significa "o cliente aprovou".
@@ -31,20 +33,14 @@ No monólito, `DIAGNOSTICO` é status da OS antes de `AGUARDANDO`, e `AGUARDANDO
 
 O contrato é independente de linguagem (JSON Schema). Com Python em algum serviço, o `scripts/validar_contrato.py` serve de referência de validação; em outras linguagens, cada serviço valida contra os mesmos schemas com a biblioteca da sua stack.
 
-## 4. Filas padrão ou FIFO
-
-SQS padrão pode entregar **fora de ordem** e **repetido**. FIFO garante ordem por `MessageGroupId` e deduplica por 5 minutos com `MessageDeduplicationId`, mas exige o sufixo `.fifo` no nome da fila e tem limite menor de vazão.
-
-**Recomendação: FIFO**, com `MessageGroupId = sagaId` e `MessageDeduplicationId = messageId`. A Saga é sensível à ordem (`ExecucaoFinalizada` antes de `ExecucaoIniciada` seria descartada como transição inválida), e a vazão de uma oficina é irrelevante para o limite. A idempotência por `messageId` continua obrigatória (a deduplicação do FIFO vale só por 5 minutos). A v0.1 usa filas **padrão** com os nomes combinados; trocar para FIFO muda os nomes (`oficina-billing-comandos.fifo` etc.) e o binding no `asyncapi.yaml`.
-
-## 5. Tipo do `osId`
+## 4. Tipo do `osId`
 
 A v0.1 usa **inteiro** porque a OS do monólito usa `BigAutoField` (`app/settings.py`, `DEFAULT_AUTO_FIELD`). Se o OS Service novo adotar UUID, muda o schema em `contrato/schemas/comum.schema.json` (`idNumerico`) — decisão do Hélio.
 
-## 6. `X-Correlation-Id` no envelope
+## 5. `X-Correlation-Id` no envelope
 
 O ADR-007 do monólito criou o `X-Correlation-Id` para ligar o fluxo de autenticação ao de aplicação. A v0.1 leva só o `requestId`. Recomendação: **não incluir** por ora — o `requestId` já liga a Saga à requisição de origem, e o correlation id continua consultável no log dessa requisição.
 
-## 7. Timeout de aprovação
+## 6. Timeout de aprovação
 
 Orçamento sem resposta do cliente fica em `AGUARDANDO_APROVACAO` para sempre. `CancelarOrcamento` já aceita o motivo `TIMEOUT`; falta decidir o prazo (sugestão: `validoAte` do `OrcamentoGerado`) e quem dispara (agendamento no OS Service).

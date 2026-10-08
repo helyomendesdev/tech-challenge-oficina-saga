@@ -21,11 +21,13 @@ Contrato de mensagens, documentação e testes ponta a ponta da **Saga orquestra
 
 Envelope comum a todas: `messageId` (chave de idempotência), `type`, `version`, `sagaId`, `osId`, `causationId`, `requestId`, `occurredAt`, `payload`.
 
-| Fila (+ `-dlq`) | Quem consome | Mensagens |
+| Fila FIFO (+ DLQ `…-dlq.fifo`) | Quem consome | Mensagens |
 |---|---|---|
-| `oficina-billing-comandos` | Billing | `GerarOrcamento`, `CancelarOrcamento` |
-| `oficina-execucao-comandos` | Execução | `IniciarExecucao`, `CancelarExecucao` |
-| `oficina-os-saga-respostas` | OS Service (orquestrador) | `OrcamentoGerado`, `OrcamentoFalhou`, `OrcamentoAprovado`, `OrcamentoRecusado`, `OrcamentoCancelado`, `ExecucaoIniciada`, `ExecucaoFalhou`, `ExecucaoFinalizada`, `ExecucaoCancelada` |
+| `oficina-billing-comandos.fifo` | Billing | `GerarOrcamento`, `CancelarOrcamento` |
+| `oficina-execucao-comandos.fifo` | Execução | `IniciarExecucao`, `CancelarExecucao` |
+| `oficina-os-saga-respostas.fifo` | OS Service (orquestrador) | `OrcamentoGerado`, `OrcamentoFalhou`, `OrcamentoAprovado`, `OrcamentoRecusado`, `OrcamentoCancelado`, `ExecucaoIniciada`, `ExecucaoFalhou`, `ExecucaoFinalizada`, `ExecucaoCancelada` |
+
+Todo envio usa `MessageGroupId = sagaId` e `MessageDeduplicationId = messageId`.
 
 ## Rodar localmente
 
