@@ -23,51 +23,32 @@ Checagens:
    mesmo `type` sao erro.
 """
 
-import json
 import pathlib
 import re
 import sys
 
 import yaml
-from jsonschema import Draft7Validator, FormatChecker
-from referencing import Registry, Resource
-from referencing.jsonschema import DRAFT7
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(RAIZ))
+
+from oficina_saga.contrato import (  # noqa: E402  (depende do sys.path acima)
+    carregar_json,
+    montar_registro,
+    montar_validador,
+    schemas_por_tipo,
+)
+
 CONTRATO = RAIZ / "contrato"
 SCHEMAS = CONTRATO / "schemas"
 EXEMPLOS = CONTRATO / "exemplos"
 
 
-def carregar_json(caminho):
-    return json.loads(caminho.read_text(encoding="utf-8"))
-
-
-def montar_registro():
-    """Registra todos os schemas pelo $id, para os $ref relativos resolverem."""
-    schemas = {}
-    for caminho in sorted(SCHEMAS.rglob("*.schema.json")):
-        schema = carregar_json(caminho)
-        Draft7Validator.check_schema(schema)
-        schemas[caminho] = schema
-    registro = Registry().with_resources(
-        (s["$id"], Resource.from_contents(s, default_specification=DRAFT7))
-        for s in schemas.values()
-    )
-    return schemas, registro
-
-
 def main():
     falhas = []
-    schemas, registro = montar_registro()
-
-    por_tipo = {}
-    for caminho, schema in schemas.items():
-        if caminho.parent.name in ("comandos", "respostas"):
-            por_tipo[schema["title"]] = schema
-
-    def validador(tipo):
-        return Draft7Validator(por_tipo[tipo], registry=registro, format_checker=FormatChecker())
+    schemas, registro = montar_registro(CONTRATO)
+    por_tipo = schemas_por_tipo(schemas)
+    validador = montar_validador(por_tipo, registro)
 
     # 2. exemplos validos
     tipos_com_exemplo = set()
