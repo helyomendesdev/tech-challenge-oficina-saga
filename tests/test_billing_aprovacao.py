@@ -18,7 +18,7 @@ def _validador(no):
 
 def test_rota_codigos_e_seguranca():
     assert list(openapi["paths"]) == ["/api/v1/orcamentos/{id}/aprovar"]
-    assert set(ROTA["responses"]) == {"202", "401", "404", "409"}
+    assert set(ROTA["responses"]) == {"202", "401", "403", "404", "409"}
     assert ROTA["security"] == [{"bearerAuth": []}]
     assert openapi["components"]["securitySchemes"]["bearerAuth"]["scheme"] == "bearer"
     assert [s["url"] for s in openapi["servers"]] == ["http://localhost:8001", "http://billing:8000"]
@@ -62,5 +62,5 @@ def test_validador_recusa_orcamento_id_que_nao_e_uuid():
 
 
 def test_erros_usam_o_schema_de_erro():
-    for codigo in ("401", "404", "409"):
+    for codigo in ("401", "403", "404", "409"):
         assert ROTA["responses"][codigo]["content"]["application/json"]["schema"] == {"$ref": "#/components/schemas/Erro"}

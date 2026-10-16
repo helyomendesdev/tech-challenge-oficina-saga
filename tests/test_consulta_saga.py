@@ -30,7 +30,7 @@ def test_enum_de_type_do_historico_bate_com_o_envelope():
 
 
 def test_rota_e_seguranca():
-    assert set(ROTA["responses"]) == {"200", "401", "404"}
+    assert set(ROTA["responses"]) == {"200", "401", "403", "404"}
     assert ROTA["security"] == [{"bearerAuth": []}]
 
 

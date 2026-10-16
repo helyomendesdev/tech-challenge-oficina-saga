@@ -22,6 +22,8 @@ paths:
       description: >-
         Aceita a aprovacao e responde 202: o Billing publica OrcamentoAprovado
         de forma assincrona, e a Saga avanca quando o orquestrador o consome.
+        Autorizacao: so o cliente dono da OS do orcamento (sub do JWT igual ao
+        clienteId da OS) ou um usuario com papel de atendente pode aprovar.
       tags: [orcamento]
       security:
         - bearerAuth: []
@@ -41,6 +43,12 @@ paths:
                 $ref: "#/components/schemas/AprovacaoAceita"
         "401":
           description: Token JWT ausente, invalido ou expirado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "403":
+          description: O JWT e valido, mas o chamador nao e o cliente dono da OS deste orcamento nem tem o papel de atendente.
           content:
             application/json:
               schema:

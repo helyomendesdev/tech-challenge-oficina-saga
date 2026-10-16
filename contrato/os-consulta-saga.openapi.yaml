@@ -21,6 +21,9 @@ paths:
       description: >-
         Devolve todas as Sagas da OS e qual esta ativa. Uma OS pode ter mais de
         uma Saga: a recusa de orcamento devolve a OS ao diagnostico e abre outra.
+        Autorizacao: so o cliente dono da OS (sub do JWT igual ao clienteId) ou
+        um usuario com papel de atendente le a Saga, porque o historico expoe
+        orcamentoId, requestId e traceId.
       tags: [saga]
       security:
         - bearerAuth: []
@@ -41,6 +44,12 @@ paths:
                 $ref: "#/components/schemas/ConsultaSaga"
         "401":
           description: Token JWT ausente, invalido ou expirado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "403":
+          description: O JWT e valido, mas o chamador nao e o cliente dono da OS nem tem o papel de atendente.
           content:
             application/json:
               schema:
