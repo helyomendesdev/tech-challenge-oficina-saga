@@ -97,8 +97,14 @@ class DriverReferencia:
         assert mensagens, "nenhuma mensagem trocada"
         sem_traceparent = [m.envelope["type"] for m in mensagens if "traceparent" not in m.atributos]
         assert not sem_traceparent, f"mensagens sem traceparent nos MessageAttributes: {sem_traceparent}"
-        trace_ids = {rastreio.parse_traceparent(m.atributos["traceparent"]["StringValue"]).trace_id for m in mensagens}
+        campos = [rastreio.parse_traceparent(m.atributos["traceparent"]["StringValue"]) for m in mensagens]
+        trace_ids = {c.trace_id for c in campos}
         assert len(trace_ids) == 1, f"mais de um trace-id na Saga: {sorted(trace_ids)}"
+        for anterior, atual, mensagem in zip(campos, campos[1:], mensagens[1:]):
+            assert atual.parent_id != anterior.parent_id, (
+                f"{mensagem.envelope['type']} reaproveitou o parent-id {atual.parent_id} da mensagem anterior: "
+                "cada salto deve abrir um span filho"
+            )
         request_ids = {m.envelope["requestId"] for m in mensagens}
         assert len(request_ids) == 1, f"mais de um requestId na Saga: {sorted(request_ids)}"
 
