@@ -8,6 +8,7 @@ Funcionalidade: Saga da ordem de serviço ponta a ponta
     Dado uma OS com diagnóstico concluído para o cliente 7 e o veículo 15
     E o diagnóstico indica 1 serviço 12 e 2 peças 40
 
+  @stack-real
   Cenário: Fluxo feliz até a OS finalizada
     Quando o orquestrador inicia a Saga da OS
     Então o Billing recebe o comando "GerarOrcamento"
@@ -21,6 +22,7 @@ Funcionalidade: Saga da ordem de serviço ponta a ponta
     E a OS fica com status "FINALIZADA"
     E todas as mensagens da Saga compartilham o mesmo requestId e trace-id
 
+  @stack-real
   Cenário: Compensação quando a execução falha
     Quando o orquestrador inicia a Saga da OS
     E o cliente aprova o orçamento
@@ -34,6 +36,7 @@ Funcionalidade: Saga da ordem de serviço ponta a ponta
     Então a Saga fica em "CANCELADA"
     E a OS fica com status "CANCELADA"
 
+  @stack-real
   Cenário: Compensação quando o pagamento falha
     Quando o orquestrador inicia a Saga da OS
     E o cliente aprova o orçamento

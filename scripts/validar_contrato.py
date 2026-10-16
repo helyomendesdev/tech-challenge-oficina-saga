@@ -39,6 +39,7 @@ from oficina_saga.contrato import (  # noqa: E402  (depende do sys.path acima)
     montar_validador,
     schemas_por_tipo,
 )
+from oficina_saga.maquina import carregar as carregar_maquina  # noqa: E402
 
 CONTRATO = RAIZ / "contrato"
 SCHEMAS = CONTRATO / "schemas"
@@ -199,7 +200,7 @@ def checar_status_os(maquina, estados):
 
 def checar_maquina(comandos, respostas, motivos, exemplos, exige_motivo):
     falhas = []
-    maquina = yaml.safe_load((CONTRATO / "saga-estados.yaml").read_text(encoding="utf-8"))
+    maquina = carregar_maquina(CONTRATO)
     estados = set(maquina["estados"])
     finais = set(maquina["finais"])
     gatilhos = set(maquina["gatilhos_externos"])
