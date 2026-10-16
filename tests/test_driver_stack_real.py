@@ -198,6 +198,20 @@ def test_espera_estado_falha_quando_o_estado_nao_chega(stack, driver):
     assert stack.polls > 1
 
 
+def test_espera_estado_aceita_estado_posterior_ao_esperado(stack, driver):
+    # COMPENSANDO e transitorio na stack real: o poll ja pode ver a Saga cancelada.
+    stack.consultas = [_consulta("CANCELADA", ("CancelarOrcamento", "ENVIADA"), status_os="CANCELADA")]
+    driver.esperar_estado("COMPENSANDO")
+    assert stack.polls == 1
+
+
+def test_espera_estado_nao_aceita_estado_anterior_ao_esperado(stack, driver):
+    stack.consultas = [_consulta("ORCAMENTO_SOLICITADO", ("GerarOrcamento", "ENVIADA"))]
+    with pytest.raises(AssertionError, match="timeout"):
+        driver.esperar_estado("EM_EXECUCAO")
+    assert stack.polls > 1
+
+
 def test_espera_continua_enquanto_a_consulta_devolve_404(stack, driver):
     stack.consultas = [None, None, _consulta("INICIADA")]
     driver.esperar_estado("INICIADA")

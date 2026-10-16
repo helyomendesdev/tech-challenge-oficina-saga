@@ -23,6 +23,8 @@ import urllib.error
 import urllib.request
 import warnings
 
+from oficina_saga import maquina
+
 # Dados que provocam as falhas reais em cima do corpo base da abertura.
 # A COMBINAR COM BILLING E EXECUCAO: os valores abaixo sao marcadores, nao o
 # que a stack aceita hoje (cartao recusado do sandbox Mercado Pago; peca sem
@@ -42,6 +44,7 @@ class DriverStackReal:
         self._billing_url = os.environ.get("SAGA_E2E_BILLING_URL", "http://localhost:8001").rstrip("/")
         self._timeout_s = float(os.environ.get("SAGA_E2E_TIMEOUT_S", "60"))
         self._intervalo_s = float(os.environ.get("SAGA_E2E_INTERVALO_S", "1"))
+        self._maquina = maquina.carregar()
         self._cenario = "feliz"
         self._os_id = None
         self._ultima_saga = None
@@ -82,12 +85,15 @@ class DriverStackReal:
         self._esperar(f"a resposta {tipo} chegar ao orquestrador", lambda s: self._chegou(s, "RECEBIDA", tipo))
 
     def esperar_estado(self, estado_esperado):
-        def chegou(resposta):
+        """Espera o estado esperado ou um posterior: na stack real a Saga anda sozinha entre dois polls."""
+        alcancaveis = maquina.alcancaveis(self._maquina, estado_esperado)
+
+        def _satisfaz(resposta):
             if resposta["estado"] == estado_esperado:
                 return True
-            return False
+            return resposta["estado"] in alcancaveis
 
-        self._esperar(f"a Saga chegar a {estado_esperado}", chegou)
+        self._esperar(f"a Saga chegar a {estado_esperado}", _satisfaz)
 
     def esperar_comando(self, destino, tipo, motivo=None):
         self._avisar_nao_conferido(motivo=motivo)

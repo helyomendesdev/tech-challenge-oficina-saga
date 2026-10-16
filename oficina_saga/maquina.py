@@ -16,3 +16,18 @@ def carregar(raiz=None):
 def tabela(maquina):
     """{(estado `de`, `recebe`): transicao} da maquina."""
     return {(t["de"], t["recebe"]): t for t in maquina["transicoes"]}
+
+
+def alcancaveis(maquina, estado):
+    """Estados a que a maquina pode chegar a partir de `estado` (o proprio `estado` incluido)."""
+    adjacentes = {}
+    for t in maquina["transicoes"]:
+        adjacentes.setdefault(t["de"], set()).add(t["para"])
+    vistos = {estado}
+    pendentes = [estado]
+    while pendentes:
+        for proximo in adjacentes.get(pendentes.pop(), ()):
+            if proximo not in vistos:
+                vistos.add(proximo)
+                pendentes.append(proximo)
+    return vistos
