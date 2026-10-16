@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/respostas/PagamentoEstornado.schema.json",
+  "title": "PagamentoEstornado",
+  "description": "Billing -> OS Service: confirmacao da compensacao EstornarPagamento.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "PagamentoEstornado"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pagamentoId",
+        "estornadoEm"
+      ],
+      "properties": {
+        "pagamentoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "estornadoEm": {
+          "$ref": "../comum.schema.json#/definitions/dataHora"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "messageId": "3975225c-ae5c-57ff-8ae3-7511085e56d0",
+  "type": "PagamentoFalhou",
+  "version": 1,
+  "sagaId": "872bce37-eab8-54b3-923f-95d45daef3b8",
+  "osId": 106,
+  "causationId": "80f081d6-4637-5662-8d03-1d5cb6789a74",
+  "requestId": "req-falha-pagamento-5b2e81",
+  "occurredAt": "2026-10-07T17:00:05Z",
+  "payload": {
+    "motivo": "RECUSADO",
+    "detalhe": "Cartao recusado pelo emissor (cc_rejected_insufficient_amount)."
+  }
+}

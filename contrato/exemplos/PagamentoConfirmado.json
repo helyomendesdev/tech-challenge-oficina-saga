@@ -1,0 +1,16 @@
+{
+  "messageId": "adddb2ba-c653-5dbe-ab21-32869f4f5328",
+  "type": "PagamentoConfirmado",
+  "version": 1,
+  "sagaId": "291be3b9-8b0d-583e-94c1-f9d2ae911fb3",
+  "osId": 101,
+  "causationId": "49624f06-019e-5f4a-af9b-be2f45b04c11",
+  "requestId": "req-feliz-947a90",
+  "occurredAt": "2026-10-07T15:20:05Z",
+  "payload": {
+    "pagamentoId": "0e0d1cd1-bf8b-5df1-aa9b-928905bf74a9",
+    "valorPagoCentavos": 45990,
+    "mercadoPagoPaymentId": "mp-pay-7c41e9",
+    "confirmadoEm": "2026-10-07T15:20:04Z"
+  }
+}

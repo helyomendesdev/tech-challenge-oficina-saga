@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/respostas/OrcamentoGerado.schema.json",
+  "title": "OrcamentoGerado",
+  "description": "Billing -> OS Service: orcamento criado, aguardando aprovacao do cliente.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "OrcamentoGerado"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "orcamentoId",
+        "valorTotalCentavos",
+        "validoAte"
+      ],
+      "properties": {
+        "orcamentoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "valorTotalCentavos": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "validoAte": {
+          "$ref": "../comum.schema.json#/definitions/dataHora"
+        }
+      }
+    }
+  }
+}

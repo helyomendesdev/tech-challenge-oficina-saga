@@ -1,0 +1,14 @@
+{
+  "messageId": "477eb82b-91b8-59af-97ed-c6587a13c1ce",
+  "type": "CancelarExecucao",
+  "version": 1,
+  "sagaId": "42f762d1-45ec-55cf-8846-cf0b3fe0012d",
+  "osId": 103,
+  "causationId": null,
+  "requestId": "req-cancelamento-d26d40",
+  "occurredAt": "2026-10-07T16:20:00Z",
+  "payload": {
+    "execucaoId": "3fd8217d-3ace-5501-b5ef-a428b94d3e06",
+    "motivo": "CANCELADO_PELO_CLIENTE"
+  }
+}

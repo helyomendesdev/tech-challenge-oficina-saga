@@ -1,0 +1,122 @@
+# Stack real da Saga em local: tres servicos + LocalStack (SQS/DynamoDB) + bancos.
+# Variaveis: ver stack/variaveis.md. Subir: docker compose -f stack/docker-compose.yml up --build
+# Os servicos sao construidos direto do git (Dockerfile na raiz de cada repo).
+
+x-aws: &aws
+  AWS_ENDPOINT_URL: ${AWS_ENDPOINT_URL:-http://localstack:4566}
+  AWS_REGION: ${AWS_REGION:-us-east-1}
+  AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+
+x-filas: &filas
+  QUEUE_BILLING_COMANDOS_URL: ${QUEUE_BILLING_COMANDOS_URL:-http://localstack:4566/000000000000/oficina-billing-comandos.fifo}
+  QUEUE_BILLING_COMANDOS_DLQ_URL: ${QUEUE_BILLING_COMANDOS_DLQ_URL:-http://localstack:4566/000000000000/oficina-billing-comandos-dlq.fifo}
+  QUEUE_EXECUCAO_COMANDOS_URL: ${QUEUE_EXECUCAO_COMANDOS_URL:-http://localstack:4566/000000000000/oficina-execucao-comandos.fifo}
+  QUEUE_EXECUCAO_COMANDOS_DLQ_URL: ${QUEUE_EXECUCAO_COMANDOS_DLQ_URL:-http://localstack:4566/000000000000/oficina-execucao-comandos-dlq.fifo}
+  QUEUE_OS_SAGA_RESPOSTAS_URL: ${QUEUE_OS_SAGA_RESPOSTAS_URL:-http://localstack:4566/000000000000/oficina-os-saga-respostas.fifo}
+  QUEUE_OS_SAGA_RESPOSTAS_DLQ_URL: ${QUEUE_OS_SAGA_RESPOSTAS_DLQ_URL:-http://localstack:4566/000000000000/oficina-os-saga-respostas-dlq.fifo}
+
+x-newrelic: &newrelic
+  NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY:-}
+  NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME:-oficina}
+
+services:
+  localstack:
+    image: localstack/localstack:3.8.1
+    environment:
+      SERVICES: sqs,dynamodb
+      AWS_DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  criar-filas:
+    image: python:3.12-slim
+    working_dir: /app
+    volumes:
+      - ../contrato:/app/contrato:ro
+      - ../stack:/app/stack:ro
+    environment:
+      <<: *aws
+    command: >
+      sh -c "pip install --no-cache-dir boto3 pyyaml &&
+             python stack/criar_filas.py"
+    depends_on:
+      localstack:
+        condition: service_healthy
+    restart: "no"
+
+  postgres-os:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_OS_DB:-os}
+      POSTGRES_USER: ${POSTGRES_OS_USER:-os}
+      POSTGRES_PASSWORD: ${POSTGRES_OS_PASSWORD:-os}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_OS_USER:-os} -d ${POSTGRES_OS_DB:-os}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres-billing:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_BILLING_DB:-billing}
+      POSTGRES_USER: ${POSTGRES_BILLING_USER:-billing}
+      POSTGRES_PASSWORD: ${POSTGRES_BILLING_PASSWORD:-billing}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_BILLING_USER:-billing} -d ${POSTGRES_BILLING_DB:-billing}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  os:
+    build: https://github.com/helyomendesdev/tech-challenge-oficina-os.git#main
+    environment:
+      <<: [*aws, *filas, *newrelic]
+      SAGA_QUEUE_URL: ${SAGA_QUEUE_URL:-http://localstack:4566/000000000000/oficina-billing-comandos.fifo}
+      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_OS:-oficina-os}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-insecure-key}
+      RUN_MIGRATIONS: "true"
+      POSTGRES_HOST: postgres-os
+      POSTGRES_DB: ${POSTGRES_OS_DB:-os}
+      POSTGRES_USER: ${POSTGRES_OS_USER:-os}
+      POSTGRES_PASSWORD: ${POSTGRES_OS_PASSWORD:-os}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres-os:
+        condition: service_healthy
+      criar-filas:
+        condition: service_completed_successfully
+
+  billing:
+    build: https://github.com/helyomendesdev/tech-challenge-oficina-billing.git#main
+    environment:
+      <<: [*aws, *filas, *newrelic]
+      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_BILLING:-oficina-billing}
+      DATABASE_URL: postgresql://${POSTGRES_BILLING_USER:-billing}:${POSTGRES_BILLING_PASSWORD:-billing}@postgres-billing:5432/${POSTGRES_BILLING_DB:-billing}
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres-billing:
+        condition: service_healthy
+      criar-filas:
+        condition: service_completed_successfully
+
+  execucao:
+    build: https://github.com/helyomendesdev/tech-challenge-oficina-execution.git#main
+    environment:
+      <<: [*aws, *filas, *newrelic]
+      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_EXECUCAO:-oficina-execucao}
+      DYNAMODB_ENDPOINT_URL: ${DYNAMODB_ENDPOINT_URL:-http://localstack:4566}
+    ports:
+      - "8002:8000"
+    depends_on:
+      criar-filas:
+        condition: service_completed_successfully

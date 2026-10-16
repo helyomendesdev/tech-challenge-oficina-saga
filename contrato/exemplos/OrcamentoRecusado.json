@@ -1,0 +1,15 @@
+{
+  "messageId": "c1182c7e-39a3-5a58-b225-fd2ef76a92ba",
+  "type": "OrcamentoRecusado",
+  "version": 1,
+  "sagaId": "61c0625a-2da0-52bf-9dc8-378e2abb5c09",
+  "osId": 105,
+  "causationId": "de9c977c-69e0-5bf4-a792-ea46fc03f8c3",
+  "requestId": "req-recusa-3d1749",
+  "occurredAt": "2026-10-07T16:00:00Z",
+  "payload": {
+    "orcamentoId": "cee829b3-06a6-56e8-bcfa-7d6e353dcc8f",
+    "recusadoEm": "2026-10-07T15:59:40Z",
+    "motivo": "Valor acima do esperado."
+  }
+}

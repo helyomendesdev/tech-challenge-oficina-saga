@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/respostas/PagamentoConfirmado.schema.json",
+  "title": "PagamentoConfirmado",
+  "description": "Billing -> OS Service: Mercado Pago confirmou o pagamento.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "PagamentoConfirmado"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pagamentoId",
+        "valorPagoCentavos",
+        "mercadoPagoPaymentId",
+        "confirmadoEm"
+      ],
+      "properties": {
+        "pagamentoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "valorPagoCentavos": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mercadoPagoPaymentId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "confirmadoEm": {
+          "$ref": "../comum.schema.json#/definitions/dataHora"
+        }
+      }
+    }
+  }
+}

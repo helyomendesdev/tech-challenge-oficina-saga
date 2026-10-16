@@ -1,0 +1,13 @@
+{
+  "messageId": "b6a25a46-18fb-5548-a981-e84f5a1bcc87",
+  "type": "OrcamentoCancelado",
+  "version": 1,
+  "sagaId": "3cc31d44-e737-5d3a-b47e-9bf8ca9409a9",
+  "osId": 102,
+  "causationId": "ab45c39d-a99d-50f3-abd3-07c8704e36c2",
+  "requestId": "req-falha-execucao-9877f3",
+  "occurredAt": "2026-10-07T16:10:06Z",
+  "payload": {
+    "orcamentoId": "7db89e3e-610e-595d-99ad-4c6db858aea6"
+  }
+}

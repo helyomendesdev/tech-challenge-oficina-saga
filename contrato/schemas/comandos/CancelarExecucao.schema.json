@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/comandos/CancelarExecucao.schema.json",
+  "title": "CancelarExecucao",
+  "description": "OS Service -> Execucao: compensacao; interrompe a execucao e devolve pecas reservadas.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "CancelarExecucao"
+    },
+    "version": {
+      "const": 1
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execucaoId",
+        "motivo"
+      ],
+      "properties": {
+        "execucaoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "motivo": {
+          "$ref": "../comum.schema.json#/definitions/motivoReversao"
+        }
+      }
+    }
+  }
+}

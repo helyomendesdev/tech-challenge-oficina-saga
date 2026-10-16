@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/respostas/OrcamentoRecusado.schema.json",
+  "title": "OrcamentoRecusado",
+  "description": "Billing -> OS Service: cliente recusou o orcamento.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "OrcamentoRecusado"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "orcamentoId",
+        "recusadoEm",
+        "motivo"
+      ],
+      "properties": {
+        "orcamentoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "recusadoEm": {
+          "$ref": "../comum.schema.json#/definitions/dataHora"
+        },
+        "motivo": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 500
+        }
+      }
+    }
+  }
+}

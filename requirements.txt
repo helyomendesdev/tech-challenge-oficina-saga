@@ -1,0 +1,5 @@
+# Dependencias de CI e do BDD (instalar numa .venv local: ver README)
+jsonschema==4.26.0
+PyYAML==6.0.3
+pytest==9.1.1
+pytest-bdd==9.0.0

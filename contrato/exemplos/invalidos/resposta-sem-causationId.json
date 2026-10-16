@@ -1,0 +1,16 @@
+{
+  "messageId": "f73e161c-b72d-5f1f-a892-7fc7db8e83dd",
+  "type": "OrcamentoGerado",
+  "version": 1,
+  "sagaId": "291be3b9-8b0d-583e-94c1-f9d2ae911fb3",
+  "osId": 101,
+  "causationId": null,
+  "requestId": "req-feliz-947a90",
+  "occurredAt": "2026-10-07T13:00:02Z",
+  "payload": {
+    "orcamentoId": "93f0be09-1d79-5c92-a371-0cd69b36a8de",
+    "valorTotalCentavos": 45990,
+    "validoAte": "2026-10-14T13:00:02Z"
+  },
+  "_espera": "resposta sempre tem causationId (o comando que ela responde)"
+}

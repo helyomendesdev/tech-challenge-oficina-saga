@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/respostas/ExecucaoFalhou.schema.json",
+  "title": "ExecucaoFalhou",
+  "description": "Execucao -> OS Service: execucao nao pode ser iniciada ou concluida; dispara compensacao.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "ExecucaoFalhou"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "orcamentoId",
+        "execucaoId",
+        "erro"
+      ],
+      "properties": {
+        "orcamentoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "execucaoId": {
+          "oneOf": [
+            {
+              "$ref": "../comum.schema.json#/definitions/uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "erro": {
+          "$ref": "../comum.schema.json#/definitions/erro"
+        }
+      }
+    }
+  }
+}
