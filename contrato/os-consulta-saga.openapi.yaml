@@ -10,6 +10,8 @@ info:
 servers:
   - url: http://localhost:8001
     description: OS Service local (python manage.py runserver 8001, como no README do -os)
+  - url: http://localhost:8000
+    description: OS Service do stack/docker-compose.yml, pela porta publicada no host (padrao do motor stack-real)
   - url: http://os:8000
     description: OS Service dentro do stack/docker-compose.yml
 
