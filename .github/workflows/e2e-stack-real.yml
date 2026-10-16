@@ -1,0 +1,40 @@
+name: BDD contra a stack real
+
+# Disparo manual: depende dos tres servicos no ar e do sandbox do Mercado Pago,
+# entao nao bloqueia PR. A CI dos PRs roda o motor de referencia (ci.yml).
+on:
+  workflow_dispatch:
+
+jobs:
+  stack-real:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+      SAGA_E2E_DRIVER: stack-real
+      SAGA_E2E_OS_URL: http://localhost:8000  # porta publicada do servico os no compose
+      SAGA_E2E_TOKEN: ${{ secrets.SAGA_E2E_TOKEN }}
+      SAGA_E2E_TIMEOUT_S: "120"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Subir a stack (o servico criar-filas cria filas e DLQs do AsyncAPI antes dos servicos)
+        run: docker compose -f stack/docker-compose.yml up -d --build --wait
+
+      - name: BDD contra os servicos reais
+        run: pytest -q e2e -rA
+
+      - name: Logs dos servicos
+        if: always()
+        run: docker compose -f stack/docker-compose.yml logs --no-color
+
+      - name: Derrubar a stack
+        if: always()
+        run: docker compose -f stack/docker-compose.yml down -v

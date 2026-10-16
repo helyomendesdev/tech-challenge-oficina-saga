@@ -33,8 +33,8 @@ jobs:
       - name: Exemplos contra schemas e coerencia com o AsyncAPI
         run: python scripts/validar_contrato.py
 
-      - name: BDD coleta os cenarios
-        run: pytest --collect-only -q
+      - name: Testes do pacote e BDD com o motor de referencia
+        run: pytest -q tests e2e
 
       - name: BDD sem step sem definicao
         run: |

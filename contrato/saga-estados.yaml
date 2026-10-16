@@ -36,6 +36,19 @@ estados:
   CONCLUIDA: Execucao finalizada. Fim feliz.
   CANCELADA: Saga encerrada sem execucao concluida.
 
+# Status da OS no monolito que cada estado da Saga espelha. Conferido pelo
+# validador contra a tabela de docs/fluxo-saga.md.
+status_os:
+  INICIADA: AGUARDANDO
+  ORCAMENTO_SOLICITADO: AGUARDANDO
+  AGUARDANDO_APROVACAO: AGUARDANDO
+  PAGAMENTO_SOLICITADO: AGUARDANDO
+  EXECUCAO_SOLICITADA: EXECUCAO
+  EM_EXECUCAO: EXECUCAO
+  CONCLUIDA: FINALIZADA
+  COMPENSANDO: CANCELADA
+  CANCELADA: CANCELADA
+
 gatilhos_externos:
   inicio: Requisicao HTTP que conclui o diagnostico e abre a Saga.
   cancelamento: Cliente pede cancelamento da OS com a execucao em andamento.

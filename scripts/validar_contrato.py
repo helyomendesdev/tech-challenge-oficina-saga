@@ -14,7 +14,8 @@ Checagens:
    enviado, gatilho externo usado por alguma transicao, motivo obrigatorio
    onde o schema do comando exige, e o diagrama de docs/fluxo-saga.md tem as
    mesmas transicoes da tabela, com o mesmo inicio (`[*] -->`) e o mesmo fim
-   (`--> [*]`).
+   (`--> [*]`). O bloco `status_os` cobre exatamente os estados e bate com a
+   tabela de correspondencia com o status da OS do mesmo doc.
 6. Os exemplos percorrem a maquina pelas trilhas: cada mensagem e aceita no
    estado corrente, causationId aponta para a mensagem anterior, e
    sagaId/osId/requestId nao mudam ao longo da trilha. Toda transicao da tabela
@@ -23,51 +24,33 @@ Checagens:
    mesmo `type` sao erro.
 """
 
-import json
 import pathlib
 import re
 import sys
 
 import yaml
-from jsonschema import Draft7Validator, FormatChecker
-from referencing import Registry, Resource
-from referencing.jsonschema import DRAFT7
 
 RAIZ = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(RAIZ))
+
+from oficina_saga.contrato import (  # noqa: E402  (depende do sys.path acima)
+    carregar_json,
+    montar_registro,
+    montar_validador,
+    schemas_por_tipo,
+)
+from oficina_saga.maquina import carregar as carregar_maquina  # noqa: E402
+
 CONTRATO = RAIZ / "contrato"
 SCHEMAS = CONTRATO / "schemas"
 EXEMPLOS = CONTRATO / "exemplos"
 
 
-def carregar_json(caminho):
-    return json.loads(caminho.read_text(encoding="utf-8"))
-
-
-def montar_registro():
-    """Registra todos os schemas pelo $id, para os $ref relativos resolverem."""
-    schemas = {}
-    for caminho in sorted(SCHEMAS.rglob("*.schema.json")):
-        schema = carregar_json(caminho)
-        Draft7Validator.check_schema(schema)
-        schemas[caminho] = schema
-    registro = Registry().with_resources(
-        (s["$id"], Resource.from_contents(s, default_specification=DRAFT7))
-        for s in schemas.values()
-    )
-    return schemas, registro
-
-
 def main():
     falhas = []
-    schemas, registro = montar_registro()
-
-    por_tipo = {}
-    for caminho, schema in schemas.items():
-        if caminho.parent.name in ("comandos", "respostas"):
-            por_tipo[schema["title"]] = schema
-
-    def validador(tipo):
-        return Draft7Validator(por_tipo[tipo], registry=registro, format_checker=FormatChecker())
+    schemas, registro = montar_registro(CONTRATO)
+    por_tipo = schemas_por_tipo(schemas)
+    validador = montar_validador(por_tipo, registro)
 
     # 2. exemplos validos
     tipos_com_exemplo = set()
@@ -150,6 +133,7 @@ def main():
         return 1
     estados, transicoes, trilhas = contagem
     print(f"maquina ok: {estados} estados, {transicoes} transicoes, {trilhas} trilhas, diagrama coerente")
+    print(f"status da OS ok: {estados} estados mapeados, tabela do doc coerente")
     print(f"contrato ok: {len(por_tipo)} mensagens, {len(tipos_com_exemplo)} exemplos validos")
     return 0
 
@@ -168,9 +152,55 @@ def transicoes_do_diagrama():
     return pares
 
 
+def status_os_do_doc():
+    """{estado: status} da tabela "Correspondencia com o status da OS" de docs/fluxo-saga.md.
+
+    So entram linhas cuja 1a coluna lista estados entre crases e cuja 2a coluna
+    tem um unico status entre crases; as linhas `— (antes/depois da Saga)` ficam de fora.
+    Devolve None quando a secao nao existe.
+    """
+    texto = (RAIZ / "docs" / "fluxo-saga.md").read_text(encoding="utf-8")
+    secao = re.search(r"^## Correspond[^\n]*status da OS[^\n]*\n(.*?)(?=^## |\Z)", texto, re.S | re.M)
+    if not secao:
+        return None
+    mapa = {}
+    for linha in secao.group(1).splitlines():
+        colunas = [c.strip() for c in linha.strip().strip("|").split("|")]
+        if not linha.lstrip().startswith("|") or len(colunas) < 2 or colunas[0].startswith("—"):
+            continue
+        estados = re.findall(r"`(\w+)`", colunas[0])
+        status = re.findall(r"`(\w+)`", colunas[1])
+        if estados and len(status) == 1:
+            for e in estados:
+                mapa[e] = status[0]
+    return mapa
+
+
+def checar_status_os(maquina, estados):
+    falhas = []
+    status_os = maquina.get("status_os")
+    if not isinstance(status_os, dict):
+        return ["maquina: bloco status_os ausente"]
+    for e in sorted(estados - set(status_os)):
+        falhas.append(f"maquina: status_os nao mapeia o estado {e}")
+    for e in sorted(set(status_os) - estados):
+        falhas.append(f"maquina: status_os mapeia {e}, que nao esta em estados")
+    do_doc = status_os_do_doc()
+    if not do_doc:
+        return falhas + ["fluxo-saga.md: tabela de correspondencia com o status da OS nao encontrada"]
+    for e in sorted(estados & set(status_os)):
+        if e not in do_doc:
+            falhas.append(f"fluxo-saga.md: estado {e} nao aparece na tabela de status da OS")
+        elif do_doc[e] != status_os[e]:
+            falhas.append(f"status da OS de {e}: yaml diz {status_os[e]}, tabela do doc diz {do_doc[e]}")
+    for e in sorted(set(do_doc) - estados):
+        falhas.append(f"fluxo-saga.md: tabela de status da OS lista {e}, que nao esta em estados")
+    return falhas
+
+
 def checar_maquina(comandos, respostas, motivos, exemplos, exige_motivo):
     falhas = []
-    maquina = yaml.safe_load((CONTRATO / "saga-estados.yaml").read_text(encoding="utf-8"))
+    maquina = carregar_maquina(CONTRATO)
     estados = set(maquina["estados"])
     finais = set(maquina["finais"])
     gatilhos = set(maquina["gatilhos_externos"])
@@ -250,6 +280,8 @@ def checar_maquina(comandos, respostas, motivos, exemplos, exige_motivo):
             falhas.append(f"fluxo-saga.md: falta {de} --> {para} no diagrama")
         for de, para in sorted(internos - pares_tabela):
             falhas.append(f"fluxo-saga.md: diagrama tem {de} --> {para}, que a maquina nao tem")
+
+    falhas += checar_status_os(maquina, estados)
 
     na_trilha = set()
     percorridas = set()
