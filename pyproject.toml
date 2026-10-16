@@ -11,6 +11,14 @@ dependencies = []
 
 [project.optional-dependencies]
 newrelic = ["newrelic>=9.0,<10.0"]
+# envelope.validar e maquina.carregar leem os schemas e o yaml do contrato
+validacao = ["jsonschema>=4.20,<5", "PyYAML>=6"]
 
 [tool.setuptools]
-packages = ["oficina_saga"]
+# A pasta contrato/ vai dentro do pacote instalado como oficina_saga._contrato,
+# para envelope.validar e maquina.carregar funcionarem fora deste repositorio.
+packages = ["oficina_saga", "oficina_saga._contrato"]
+package-dir = {"oficina_saga._contrato" = "contrato"}
+
+[tool.setuptools.package-data]
+"oficina_saga._contrato" = ["saga-estados.yaml", "schemas/*.json", "schemas/*/*.json"]

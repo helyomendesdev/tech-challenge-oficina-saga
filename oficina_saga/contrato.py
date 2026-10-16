@@ -9,6 +9,14 @@ from referencing.jsonschema import DRAFT7
 
 RAIZ_REPO = pathlib.Path(__file__).resolve().parent.parent
 RAIZ_CONTRATO = RAIZ_REPO / "contrato"
+if not (RAIZ_CONTRATO / "schemas").is_dir():
+    # Instalado por pip: o contrato vem empacotado como oficina_saga._contrato
+    # (ver package-dir no pyproject.toml).
+    import importlib.util
+
+    _spec = importlib.util.find_spec("oficina_saga._contrato")
+    if _spec is not None and _spec.submodule_search_locations:
+        RAIZ_CONTRATO = pathlib.Path(list(_spec.submodule_search_locations)[0])
 
 
 def carregar_json(caminho):
