@@ -79,7 +79,7 @@ services:
     build: https://github.com/helyomendesdev/tech-challenge-oficina-os.git#main
     environment:
       <<: [*aws, *filas, *newrelic]
-      SAGA_QUEUE_URL: ${SAGA_QUEUE_URL:-http://localstack:4566/000000000000/oficina-os-saga-respostas.fifo}
+      SAGA_QUEUE_URL: ${SAGA_QUEUE_URL:-http://localstack:4566/000000000000/oficina-billing-comandos.fifo}
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_OS:-oficina-os}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-insecure-key}
       RUN_MIGRATIONS: "true"

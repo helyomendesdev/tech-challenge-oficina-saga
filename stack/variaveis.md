@@ -14,7 +14,7 @@ os nomes sao os mesmos.
 | `QUEUE_EXECUCAO_COMANDOS_DLQ_URL` | `.../oficina-execucao-comandos-dlq.fifo` | DLQ da fila acima. |
 | `QUEUE_OS_SAGA_RESPOSTAS_URL` | `.../oficina-os-saga-respostas.fifo` | Fila de respostas de Billing e Execucao (OS consome, os dois enviam). |
 | `QUEUE_OS_SAGA_RESPOSTAS_DLQ_URL` | `.../oficina-os-saga-respostas-dlq.fifo` | DLQ da fila de respostas. |
-| `SAGA_QUEUE_URL` | igual a `QUEUE_OS_SAGA_RESPOSTAS_URL` | Variavel que o `-os` ja le. INFERIDO: aponta para a fila de respostas da Saga, a que o orquestrador consome; o repo `-os` nao foi lido para confirmar. Se ele a usar como fila de comandos, ajuste so o valor. |
+| `SAGA_QUEUE_URL` | igual a `QUEUE_BILLING_COMANDOS_URL` (provisorio) | Legado: hoje o `-os` publica **todas** as mensagens da Saga nesta fila unica (`app/settings.py:150`, `SQSSagaPublisher` em `os_service/infrastructure/saga_adapters.py`). No v1 cada comando vai para a fila do destinatario (Billing ou Execucao) e o `-os` consome `QUEUE_OS_SAGA_RESPOSTAS_URL`; a variavel sai no realinhamento do orquestrador. |
 | `AWS_ENDPOINT_URL` | `http://localstack:4566` | Endpoint do SQS/DynamoDB. So existe no local; em AWS fica **vazia/ausente** para o SDK usar o endpoint real. |
 | `AWS_REGION` | `us-east-1` | Regiao dos clientes SQS/DynamoDB (a confirmar com a infra, ver `servers` do AsyncAPI). Tambem exportada como `AWS_DEFAULT_REGION`. |
 | `AWS_ACCESS_KEY_ID` | `test` | Credencial **fake** do LocalStack; qualquer valor serve la. Em AWS vem do Learner Lab/IRSA. |
