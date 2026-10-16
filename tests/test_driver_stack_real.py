@@ -83,6 +83,8 @@ class _Estado:
         self.consultas = []  # respostas da consulta, em ordem de poll; None = 404; a ultima se repete
         self.polls = 0
         self.aprovacao = 202  # codigo que o Billing devolve
+        self.prontidao_recusas = 0  # quantos GET /health/ready/ ainda respondem 503
+        self.prontidoes = 0
         self.aberturas = []  # (corpo, Authorization)
         self.aprovacoes = []  # (id da rota, Authorization)
         self.erros_de_schema = []
@@ -138,6 +140,11 @@ def _handler(estado):
             self._responder(404, {"codigo": "ROTA_INEXISTENTE", "mensagem": self.path})
 
         def do_GET(self):
+            if self.path == "/health/ready/":
+                estado.prontidoes += 1
+                if estado.prontidoes <= estado.prontidao_recusas:
+                    return self._responder(503, {"status": "migrando"})
+                return self._responder(200, {"status": "ok"})
             if self.path != f"/api/v1/ordens-servico/{OS_ID}/saga":
                 return self._responder(404, {"codigo": "ROTA_INEXISTENTE", "mensagem": self.path})
             estado.polls += 1
@@ -333,11 +340,39 @@ def test_cenario_desconhecido_e_recusado(driver):
         driver.usar_cenario("inventado")
 
 
+def test_prontidao_repete_ate_o_os_responder_200(stack, driver, monkeypatch):
+    stack.prontidao_recusas = 3
+    stack.prontidoes = 0
+    novo = DriverStackReal()
+    novo.iniciar_saga(cliente_id=1, veiculo_id=1, servicos=[], pecas=[])
+    assert stack.prontidoes == 4
+    assert len(stack.aberturas) == 2  # a do fixture e esta; nenhum POST antes de o -os ficar pronto
+
+
+def test_prontidao_e_conferida_uma_vez_por_driver(stack, driver):
+    antes = stack.prontidoes
+    driver.iniciar_saga(cliente_id=1, veiculo_id=1, servicos=[], pecas=[])
+    assert stack.prontidoes == antes
+
+
+def test_os_que_nunca_fica_pronto_falha_com_mensagem_de_prontidao(stack, monkeypatch):
+    stack.prontidao_recusas = 10**6
+    monkeypatch.setenv("SAGA_E2E_OS_URL", stack.url)
+    monkeypatch.setenv("SAGA_E2E_TIMEOUT_S", "0.2")
+    monkeypatch.setenv("SAGA_E2E_INTERVALO_S", "0.02")
+    motor = DriverStackReal()
+    with pytest.raises(AssertionError, match=r"nao ficou pronto.*/health/ready/.*status 503"):
+        motor.iniciar_saga(cliente_id=1, veiculo_id=1, servicos=[], pecas=[])
+    assert stack.aberturas == []
+
+
 def test_conexao_recusada_da_mensagem_clara(monkeypatch):
     with socket.socket() as soquete:
         soquete.bind(("127.0.0.1", 0))
         porta = soquete.getsockname()[1]
     monkeypatch.setenv("SAGA_E2E_OS_URL", f"http://127.0.0.1:{porta}")
+    monkeypatch.setenv("SAGA_E2E_TIMEOUT_S", "0.2")
+    monkeypatch.setenv("SAGA_E2E_INTERVALO_S", "0.02")
     motor = DriverStackReal()
-    with pytest.raises(AssertionError, match="nao consegui falar com o OS Service"):
+    with pytest.raises(AssertionError, match="nao ficou pronto.*sem conexao"):
         motor.iniciar_saga(cliente_id=1, veiculo_id=1, servicos=[], pecas=[])

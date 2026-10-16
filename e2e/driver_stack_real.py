@@ -11,6 +11,9 @@ Variaveis de ambiente: SAGA_E2E_OS_URL (http://localhost:8000),
 SAGA_E2E_BILLING_URL (http://localhost:8001), SAGA_E2E_TOKEN (Bearer JWT, sem
 ele nao vai cabecalho), SAGA_E2E_TIMEOUT_S (60), SAGA_E2E_INTERVALO_S (1).
 
+Antes da primeira chamada o driver espera `GET /health/ready/` do OS Service
+responder 200 (o -os ainda pode estar migrando), dentro do mesmo timeout.
+
 O historico da consulta traz type, direcao, ids e correlacao, mas nao o
 destino do comando, o motivo nem o codigo de erro: `destino`, `motivo` e
 `codigo` nao sao conferidos aqui (o motor emite um aviso quando recebe um deles).
@@ -36,6 +39,7 @@ DADOS_DO_CENARIO = {
 }
 
 _ROTA_ABERTURA = "/api/v1/ordens-servico/abrir/"
+_ROTA_PRONTIDAO = "/health/ready/"
 
 
 class DriverStackReal:
@@ -46,6 +50,7 @@ class DriverStackReal:
         self._intervalo_s = float(os.environ.get("SAGA_E2E_INTERVALO_S", "1"))
         self._maquina = maquina.carregar()
         self._cenario = "feliz"
+        self._os_pronto = False
         self._os_id = None
         self._ultima_saga = None
 
@@ -59,6 +64,7 @@ class DriverStackReal:
         self._cenario = nome
 
     def iniciar_saga(self, *, cliente_id, veiculo_id, servicos, pecas):
+        self._aguardar_prontidao()
         corpo = self._corpo_abertura(cliente_id, veiculo_id, servicos, pecas)
         status, resposta = self._http("POST", self._os_url, _ROTA_ABERTURA, corpo, "OS Service")
         assert status in (200, 201, 202), f"abrir a OS devolveu {status}: {resposta}"
@@ -131,6 +137,30 @@ class DriverStackReal:
         corpo = {"clienteId": cliente_id, "veiculoId": veiculo_id, "servicos": servicos, "pecas": pecas}
         corpo.update(DADOS_DO_CENARIO[self._cenario])
         return corpo
+
+    def _aguardar_prontidao(self):
+        """Espera o OS Service responder 200 em /health/ready/; repete em conexao recusada ou status != 200."""
+        if self._os_pronto:
+            return
+        prazo = time.monotonic() + self._timeout_s
+        while True:
+            try:
+                with urllib.request.urlopen(self._os_url + _ROTA_PRONTIDAO, timeout=10) as resposta:
+                    ultimo = f"status {resposta.status}"
+                    if resposta.status == 200:
+                        self._os_pronto = True
+                        return
+            except urllib.error.HTTPError as erro:
+                ultimo = f"status {erro.code}"
+            except (urllib.error.URLError, OSError) as erro:
+                ultimo = f"sem conexao ({erro})"
+            if time.monotonic() >= prazo:
+                raise AssertionError(
+                    f"o OS Service em {self._os_url} nao ficou pronto em {self._timeout_s}s "
+                    f"(GET {_ROTA_PRONTIDAO}: {ultimo}); suba a stack (stack/docker-compose.yml), "
+                    "espere as migracoes ou ajuste SAGA_E2E_OS_URL/SAGA_E2E_TIMEOUT_S"
+                )
+            time.sleep(self._intervalo_s)
 
     # --- consulta e espera -------------------------------------------------------
 
