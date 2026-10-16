@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/comandos/SolicitarPagamento.schema.json",
+  "title": "SolicitarPagamento",
+  "description": "OS Service -> Billing: cobrar o orcamento aprovado no Mercado Pago.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "SolicitarPagamento"
+    },
+    "version": {
+      "const": 1
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "orcamentoId",
+        "valorTotalCentavos"
+      ],
+      "properties": {
+        "orcamentoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        },
+        "valorTotalCentavos": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

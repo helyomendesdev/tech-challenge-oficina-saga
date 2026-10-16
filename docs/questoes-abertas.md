@@ -1,18 +1,17 @@
-# Questões abertas — contrato v0.1
+# Questões abertas — contrato v1
 
 Cada questão traz a recomendação atual. Fechada a questão, a decisão vai para um ADR e sai daqui.
 
-Já fechadas: filas FIFO (ADR-001, 2026-10-07).
+Já fechadas: filas FIFO (ADR-001, 2026-10-07); onde entra o pagamento do Mercado Pago ([ADR-002](adr-002-pagamento-antes-da-execucao.md): passo próprio antes da execução, com estorno separado).
 
-## 1. Onde entra o pagamento do Mercado Pago na Saga
+## 1. Como o link de pagamento do Mercado Pago chega ao cliente
 
-O enunciado põe o Mercado Pago no Billing. Hoje a v0.1 não tem mensagem de pagamento: `OrcamentoAprovado` significa "o cliente aprovou".
+Com o pagamento como passo da Saga, o Billing cria a cobrança no Mercado Pago ao receber `SolicitarPagamento`, e a Saga fica em `PAGAMENTO_SOLICITADO` até `PagamentoConfirmado` ou `PagamentoFalhou`. Falta decidir como o cliente recebe o link (ou QR code) para pagar.
 
-- **A. Aprovar = pagar.** `OrcamentoAprovado` só é emitido quando o pagamento é confirmado (webhook do Mercado Pago). Nenhuma mensagem nova; `CancelarOrcamento` passa a incluir **estorno**.
-- **B. Pagamento como passo próprio.** Novos `SolicitarPagamento` / `PagamentoConfirmado` / `PagamentoFalhou` e um estado `PAGAMENTO_SOLICITADO` entre a aprovação e a execução.
-- **C. Pagamento depois da execução**, na entrega do veículo — fora da Saga.
+- **A. API do Billing, fora da Saga.** O front consulta o Billing (por exemplo, `GET` do pagamento do orçamento) e mostra o link. O contrato da Saga não muda.
+- **B. Mensagem nova na Saga** (`PagamentoCriado`, com o link) do Billing para o OS Service, que repassa ao cliente.
 
-**Recomendação: A.** Mantém a Saga com três passos e a compensação continua sendo uma mensagem só (`CancelarOrcamento` estorna se houver pagamento). O Billing esconde o Mercado Pago atrás do contrato. Depende do Lucas (Billing).
+**Recomendação: A.** O link é dado do Mercado Pago, que só o Billing conhece; passá-lo pela Saga acrescentaria uma mensagem e um estado sem ganho para a orquestração, que só precisa do resultado (confirmado ou falhou). Depende do Lucas (Billing).
 
 ## 2. Onde fica o diagnóstico
 
@@ -21,7 +20,7 @@ No monólito, `DIAGNOSTICO` é status da OS antes de `AGUARDANDO`, e `AGUARDANDO
 - **A. No OS Service, antes da Saga.** A Saga começa quando o diagnóstico termina; `GerarOrcamento` leva os serviços e peças diagnosticados.
 - **B. No Execution Service**, com a Saga começando na abertura da OS.
 
-**Recomendação: A** (é o que os exemplos da v0.1 assumem). Consequência a decidir junto: o que `OrcamentoRecusado` faz. Na v0.1 ele **cancela** a Saga; para manter o comportamento do monólito, ele encerraria a Saga e devolveria a OS a `DIAGNOSTICO`, e um novo diagnóstico abriria **outra** Saga para a mesma OS (por isso `sagaId` e `osId` são campos separados).
+**Recomendação: A** (é o que os exemplos assumem). Consequência a decidir junto: o que `OrcamentoRecusado` faz. Na v1 ele **cancela** a Saga; para manter o comportamento do monólito, ele encerraria a Saga e devolveria a OS a `DIAGNOSTICO`, e um novo diagnóstico abriria **outra** Saga para a mesma OS (por isso `sagaId` e `osId` são campos separados).
 
 ## 3. Linguagem de cada serviço
 
@@ -35,11 +34,11 @@ O contrato é independente de linguagem (JSON Schema). Com Python em algum servi
 
 ## 4. Tipo do `osId`
 
-A v0.1 usa **inteiro** porque a OS do monólito usa `BigAutoField` (`app/settings.py`, `DEFAULT_AUTO_FIELD`). Se o OS Service novo adotar UUID, muda o schema em `contrato/schemas/comum.schema.json` (`idNumerico`) — decisão do Hélio.
+A v1 usa **inteiro** porque a OS do monólito usa `BigAutoField` (`app/settings.py`, `DEFAULT_AUTO_FIELD`). Se o OS Service novo adotar UUID, muda o schema em `contrato/schemas/comum.schema.json` (`idNumerico`) — decisão do Hélio.
 
 ## 5. `X-Correlation-Id` no envelope
 
-O ADR-007 do monólito criou o `X-Correlation-Id` para ligar o fluxo de autenticação ao de aplicação. A v0.1 leva só o `requestId`. Recomendação: **não incluir** por ora — o `requestId` já liga a Saga à requisição de origem, e o correlation id continua consultável no log dessa requisição.
+O ADR-007 do monólito criou o `X-Correlation-Id` para ligar o fluxo de autenticação ao de aplicação. A v1 leva só o `requestId`. Recomendação: **não incluir** por ora — o `requestId` já liga a Saga à requisição de origem, e o correlation id continua consultável no log dessa requisição.
 
 ## 6. Timeout de aprovação
 
@@ -47,7 +46,7 @@ Orçamento sem resposta do cliente fica em `AGUARDANDO_APROVACAO` para sempre. `
 
 ## 7. Escopo do `causationId` nulo
 
-Hoje todo comando aceita `causationId` nulo, para cobrir o gatilho externo: abrir a Saga (`GerarOrcamento`), o cliente cancelar (`CancelarExecucao`) e, se entrar, o timeout (`CancelarOrcamento`). Só que `IniciarExecucao` com causa nula também passa no schema, embora sempre seja reação a `OrcamentoAprovado`. Quem pega isso hoje é só o validador de exemplos.
+Hoje todo comando aceita `causationId` nulo, para cobrir o gatilho externo: abrir a Saga (`GerarOrcamento`), o cliente cancelar (`CancelarExecucao`) e, se entrar, o timeout (`CancelarOrcamento`). Só que `IniciarExecucao` com causa nula também passa no schema, embora sempre seja reação a `PagamentoConfirmado`; `SolicitarPagamento` (reação a `OrcamentoAprovado`) e `EstornarPagamento` (reação a `ExecucaoFalhou`, `ExecucaoCancelada` ou ao cancelamento do cliente) seguem a mesma regra. Quem pega isso hoje é só o validador de exemplos.
 
 - **A. Manter em todo comando.** Um schema só; o consumidor trata causa nula em qualquer comando.
 - **B. Só nos comandos com gatilho externo** (`GerarOrcamento`, `CancelarExecucao`, e `CancelarOrcamento` se o timeout entrar). Os demais exigem causa não nula no schema.

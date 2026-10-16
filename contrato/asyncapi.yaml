@@ -1,9 +1,9 @@
 asyncapi: 3.0.0
 info:
   title: Oficina - Saga da Ordem de Servico
-  version: 0.1.0
+  version: 1.0.0
   description: |
-    Contrato v0.1 (RASCUNHO) da Saga orquestrada da Fase 4.
+    Contrato v1 (proposta para revisao do grupo) da Saga orquestrada da Fase 4.
     O orquestrador mora no OS Service; Billing e Execucao so recebem comandos
     e devolvem respostas. As operacoes abaixo estao escritas do ponto de vista
     do ORQUESTRADOR: Billing e Execucao implementam o espelho (recebem o
@@ -34,6 +34,10 @@ channels:
         $ref: '#/components/messages/GerarOrcamento'
       CancelarOrcamento:
         $ref: '#/components/messages/CancelarOrcamento'
+      SolicitarPagamento:
+        $ref: '#/components/messages/SolicitarPagamento'
+      EstornarPagamento:
+        $ref: '#/components/messages/EstornarPagamento'
     bindings:
       sqs:
         queue:
@@ -90,6 +94,12 @@ channels:
         $ref: '#/components/messages/OrcamentoRecusado'
       OrcamentoCancelado:
         $ref: '#/components/messages/OrcamentoCancelado'
+      PagamentoConfirmado:
+        $ref: '#/components/messages/PagamentoConfirmado'
+      PagamentoFalhou:
+        $ref: '#/components/messages/PagamentoFalhou'
+      PagamentoEstornado:
+        $ref: '#/components/messages/PagamentoEstornado'
       ExecucaoIniciada:
         $ref: '#/components/messages/ExecucaoIniciada'
       ExecucaoFalhou:
@@ -119,12 +129,14 @@ channels:
 operations:
   enviarComandoBilling:
     action: send
-    summary: Orquestrador pede ao Billing que gere ou cancele um orcamento.
+    summary: Orquestrador pede ao Billing que gere ou cancele um orcamento, ou cobre ou estorne um pagamento.
     channel:
       $ref: '#/channels/billingComandos'
     messages:
       - $ref: '#/channels/billingComandos/messages/GerarOrcamento'
       - $ref: '#/channels/billingComandos/messages/CancelarOrcamento'
+      - $ref: '#/channels/billingComandos/messages/SolicitarPagamento'
+      - $ref: '#/channels/billingComandos/messages/EstornarPagamento'
   enviarComandoExecucao:
     action: send
     summary: Orquestrador pede a Execucao que inicie ou cancele uma execucao.
@@ -144,6 +156,9 @@ operations:
       - $ref: '#/channels/osSagaRespostas/messages/OrcamentoAprovado'
       - $ref: '#/channels/osSagaRespostas/messages/OrcamentoRecusado'
       - $ref: '#/channels/osSagaRespostas/messages/OrcamentoCancelado'
+      - $ref: '#/channels/osSagaRespostas/messages/PagamentoConfirmado'
+      - $ref: '#/channels/osSagaRespostas/messages/PagamentoFalhou'
+      - $ref: '#/channels/osSagaRespostas/messages/PagamentoEstornado'
       - $ref: '#/channels/osSagaRespostas/messages/ExecucaoIniciada'
       - $ref: '#/channels/osSagaRespostas/messages/ExecucaoFalhou'
       - $ref: '#/channels/osSagaRespostas/messages/ExecucaoFinalizada'
@@ -181,13 +196,33 @@ components:
     CancelarOrcamento:
       name: CancelarOrcamento
       title: CancelarOrcamento
-      summary: "OS Service -> Billing: compensacao; invalida o orcamento (e estorna, se houver pagamento)."
+      summary: "OS Service -> Billing: compensacao; invalida o orcamento."
       traits:
         - $ref: '#/components/messageTraits/rastreio'
       payload:
         schemaFormat: application/schema+json;version=draft-07
         schema:
           $ref: './schemas/comandos/CancelarOrcamento.schema.json'
+    SolicitarPagamento:
+      name: SolicitarPagamento
+      title: SolicitarPagamento
+      summary: "OS Service -> Billing: cobrar o orcamento aprovado no Mercado Pago."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/comandos/SolicitarPagamento.schema.json'
+    EstornarPagamento:
+      name: EstornarPagamento
+      title: EstornarPagamento
+      summary: "OS Service -> Billing: compensacao; estorna o pagamento confirmado."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/comandos/EstornarPagamento.schema.json'
     IniciarExecucao:
       name: IniciarExecucao
       title: IniciarExecucao
@@ -258,6 +293,36 @@ components:
         schemaFormat: application/schema+json;version=draft-07
         schema:
           $ref: './schemas/respostas/OrcamentoCancelado.schema.json'
+    PagamentoConfirmado:
+      name: PagamentoConfirmado
+      title: PagamentoConfirmado
+      summary: "Billing -> OS Service: Mercado Pago confirmou o pagamento."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/PagamentoConfirmado.schema.json'
+    PagamentoFalhou:
+      name: PagamentoFalhou
+      title: PagamentoFalhou
+      summary: "Billing -> OS Service: o pagamento nao foi concluido; dispara compensacao."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/PagamentoFalhou.schema.json'
+    PagamentoEstornado:
+      name: PagamentoEstornado
+      title: PagamentoEstornado
+      summary: "Billing -> OS Service: confirmacao da compensacao EstornarPagamento."
+      traits:
+        - $ref: '#/components/messageTraits/rastreio'
+      payload:
+        schemaFormat: application/schema+json;version=draft-07
+        schema:
+          $ref: './schemas/respostas/PagamentoEstornado.schema.json'
     ExecucaoIniciada:
       name: ExecucaoIniciada
       title: ExecucaoIniciada

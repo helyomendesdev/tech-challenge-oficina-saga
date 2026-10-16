@@ -2,7 +2,7 @@
 
 Contrato de mensagens, documentação e testes ponta a ponta da **Saga orquestrada** que liga OS Service, Billing e Execução.
 
-> **Status: v0.1 — rascunho.** Primeira versão do contrato combinada para 24/10/2026. Pontos em aberto em [`docs/questoes-abertas.md`](docs/questoes-abertas.md).
+> **Status: v1 — proposta para revisão do grupo (prazo 24/10/2026).** Pontos em aberto em [`docs/questoes-abertas.md`](docs/questoes-abertas.md).
 
 ## O que tem aqui
 
@@ -14,6 +14,7 @@ Contrato de mensagens, documentação e testes ponta a ponta da **Saga orquestra
 | [`contrato/saga-estados.yaml`](contrato/saga-estados.yaml) | Tabela de transições do orquestrador (estados, gatilhos, comandos enviados); conferida pelo validador |
 | [`scripts/validar_contrato.py`](scripts/validar_contrato.py) | Valida exemplos contra schemas e a coerência de nomes com o AsyncAPI; também confere a máquina de estados com o diagrama de `docs/fluxo-saga.md` e as trilhas de exemplo |
 | [`docs/adr-001-saga-orquestrada.md`](docs/adr-001-saga-orquestrada.md) | Por que orquestrada, e por que o orquestrador mora no OS Service |
+| [`docs/adr-002-pagamento-antes-da-execucao.md`](docs/adr-002-pagamento-antes-da-execucao.md) | Por que o pagamento é passo próprio da Saga, antes da execução, com estorno separado |
 | [`docs/fluxo-saga.md`](docs/fluxo-saga.md) | Diagramas: fluxo feliz, compensação, máquina de estados, mapa para o status da OS |
 | [`tracing/propagacao-sqs.md`](tracing/propagacao-sqs.md) | `traceparent`/`tracestate` em MessageAttributes do SQS; `requestId` no envelope |
 | [`e2e/`](e2e) | BDD ponta a ponta (pytest-bdd); hoje os steps fazem `pytest.skip` |
@@ -24,9 +25,9 @@ Envelope comum a todas: `messageId` (chave de idempotência), `type`, `version`,
 
 | Fila FIFO (+ DLQ `…-dlq.fifo`) | Quem consome | Mensagens |
 |---|---|---|
-| `oficina-billing-comandos.fifo` | Billing | `GerarOrcamento`, `CancelarOrcamento` |
+| `oficina-billing-comandos.fifo` | Billing | `GerarOrcamento`, `CancelarOrcamento`, `SolicitarPagamento`, `EstornarPagamento` |
 | `oficina-execucao-comandos.fifo` | Execução | `IniciarExecucao`, `CancelarExecucao` |
-| `oficina-os-saga-respostas.fifo` | OS Service (orquestrador) | `OrcamentoGerado`, `OrcamentoFalhou`, `OrcamentoAprovado`, `OrcamentoRecusado`, `OrcamentoCancelado`, `ExecucaoIniciada`, `ExecucaoFalhou`, `ExecucaoFinalizada`, `ExecucaoCancelada` |
+| `oficina-os-saga-respostas.fifo` | OS Service (orquestrador) | `OrcamentoGerado`, `OrcamentoFalhou`, `OrcamentoAprovado`, `OrcamentoRecusado`, `OrcamentoCancelado`, `PagamentoConfirmado`, `PagamentoFalhou`, `PagamentoEstornado`, `ExecucaoIniciada`, `ExecucaoFalhou`, `ExecucaoFinalizada`, `ExecucaoCancelada` |
 
 Todo envio usa `MessageGroupId = sagaId` e `MessageDeduplicationId = messageId`.
 

@@ -4,9 +4,9 @@
   "version": 1,
   "sagaId": "3cc31d44-e737-5d3a-b47e-9bf8ca9409a9",
   "osId": 102,
-  "causationId": "c31d9e16-aed6-5aa5-b40e-6e1504cd5fb6",
+  "causationId": "c42a2401-1f28-52f3-9c76-a36718d57c79",
   "requestId": "req-falha-execucao-9877f3",
-  "occurredAt": "2026-10-07T16:10:01Z",
+  "occurredAt": "2026-10-07T16:10:04Z",
   "payload": {
     "orcamentoId": "7db89e3e-610e-595d-99ad-4c6db858aea6",
     "motivo": "EXECUCAO_FALHOU"

@@ -15,8 +15,9 @@
       "description": "Nome da mensagem; seleciona o schema do payload.",
       "type": "string",
       "enum": [
-        "GerarOrcamento", "CancelarOrcamento", "IniciarExecucao", "CancelarExecucao",
+        "GerarOrcamento", "CancelarOrcamento", "SolicitarPagamento", "EstornarPagamento", "IniciarExecucao", "CancelarExecucao",
         "OrcamentoGerado", "OrcamentoFalhou", "OrcamentoAprovado", "OrcamentoRecusado", "OrcamentoCancelado",
+        "PagamentoConfirmado", "PagamentoFalhou", "PagamentoEstornado",
         "ExecucaoIniciada", "ExecucaoFalhou", "ExecucaoFinalizada", "ExecucaoCancelada"
       ]
     },

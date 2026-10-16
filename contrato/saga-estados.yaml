@@ -1,4 +1,4 @@
-# Maquina de estados do orquestrador da Saga (OS Service) — v0.1.
+# Maquina de estados do orquestrador da Saga (OS Service) — v1.
 #
 # Fonte unica das transicoes: o diagrama de docs/fluxo-saga.md e os exemplos
 # de contrato/exemplos/ sao conferidos contra este arquivo por
@@ -29,9 +29,10 @@ estados:
   INICIADA: Saga criada para a OS com diagnostico concluido.
   ORCAMENTO_SOLICITADO: GerarOrcamento enviado; aguarda o Billing.
   AGUARDANDO_APROVACAO: Orcamento gerado; aguarda o cliente.
-  EXECUCAO_SOLICITADA: Orcamento aprovado; IniciarExecucao enviado.
+  PAGAMENTO_SOLICITADO: Orcamento aprovado; SolicitarPagamento enviado, aguarda o Mercado Pago via Billing.
+  EXECUCAO_SOLICITADA: Pagamento confirmado; IniciarExecucao enviado.
   EM_EXECUCAO: Execucao em andamento.
-  COMPENSANDO: Desfazendo passos ja feitos, na ordem inversa.
+  COMPENSANDO: Desfazendo passos ja feitos, na ordem inversa (execucao, pagamento, orcamento).
   CONCLUIDA: Execucao finalizada. Fim feliz.
   CANCELADA: Saga encerrada sem execucao concluida.
 
@@ -55,8 +56,20 @@ transicoes:
 
   - de: AGUARDANDO_APROVACAO
     recebe: OrcamentoAprovado
+    para: PAGAMENTO_SOLICITADO
+    envia: SolicitarPagamento
+
+  - de: PAGAMENTO_SOLICITADO
+    recebe: PagamentoConfirmado
     para: EXECUCAO_SOLICITADA
     envia: IniciarExecucao
+
+  - de: PAGAMENTO_SOLICITADO
+    recebe: PagamentoFalhou
+    para: COMPENSANDO
+    envia: CancelarOrcamento
+    motivo: PAGAMENTO_FALHOU
+    nota: Nenhum pagamento foi confirmado, entao nao ha estorno; so o orcamento e desfeito.
 
   - de: AGUARDANDO_APROVACAO
     recebe: OrcamentoRecusado
@@ -70,7 +83,7 @@ transicoes:
   - de: EXECUCAO_SOLICITADA
     recebe: ExecucaoFalhou
     para: COMPENSANDO
-    envia: CancelarOrcamento
+    envia: EstornarPagamento
     motivo: EXECUCAO_FALHOU
 
   - de: EM_EXECUCAO
@@ -93,9 +106,15 @@ transicoes:
   - de: COMPENSANDO
     recebe: ExecucaoCancelada
     para: COMPENSANDO
-    envia: CancelarOrcamento
+    envia: EstornarPagamento
     motivo: herdado
     nota: O orquestrador guarda na Saga o motivo de quem abriu a compensacao e o repete aqui.
+
+  - de: COMPENSANDO
+    recebe: PagamentoEstornado
+    para: COMPENSANDO
+    envia: CancelarOrcamento
+    motivo: herdado
 
   - de: COMPENSANDO
     recebe: OrcamentoCancelado
@@ -109,12 +128,12 @@ trilhas:
   feliz:
     comeca_em: INICIADA
     gatilho: inicio
-    mensagens: [GerarOrcamento, OrcamentoGerado, OrcamentoAprovado, IniciarExecucao, ExecucaoIniciada, ExecucaoFinalizada]
+    mensagens: [GerarOrcamento, OrcamentoGerado, OrcamentoAprovado, SolicitarPagamento, PagamentoConfirmado, IniciarExecucao, ExecucaoIniciada, ExecucaoFinalizada]
     termina_em: CONCLUIDA
 
   falha-execucao:
     comeca_em: EXECUCAO_SOLICITADA
-    mensagens: [ExecucaoFalhou, CancelarOrcamento, OrcamentoCancelado]
+    mensagens: [ExecucaoFalhou, EstornarPagamento, PagamentoEstornado, CancelarOrcamento, OrcamentoCancelado]
     termina_em: CANCELADA
 
   cancelamento:
@@ -122,13 +141,19 @@ trilhas:
     gatilho: cancelamento
     mensagens: [CancelarExecucao, ExecucaoCancelada]
     termina_em: COMPENSANDO
-    pendente: {comando: CancelarOrcamento, motivo: CANCELADO_PELO_CLIENTE}
+    pendente: {comando: EstornarPagamento, motivo: CANCELADO_PELO_CLIENTE}
 
   falha-em-execucao:
     comeca_em: EM_EXECUCAO
     mensagens: [ExecucaoFalhou]
     termina_em: COMPENSANDO
     pendente: {comando: CancelarExecucao, motivo: EXECUCAO_FALHOU}
+
+  falha-pagamento:
+    comeca_em: PAGAMENTO_SOLICITADO
+    mensagens: [PagamentoFalhou]
+    termina_em: COMPENSANDO
+    pendente: {comando: CancelarOrcamento, motivo: PAGAMENTO_FALHOU}
 
   falha-orcamento:
     comeca_em: ORCAMENTO_SOLICITADO

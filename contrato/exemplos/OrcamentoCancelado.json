@@ -6,7 +6,7 @@
   "osId": 102,
   "causationId": "ab45c39d-a99d-50f3-abd3-07c8704e36c2",
   "requestId": "req-falha-execucao-9877f3",
-  "occurredAt": "2026-10-07T16:10:03Z",
+  "occurredAt": "2026-10-07T16:10:06Z",
   "payload": {
     "orcamentoId": "7db89e3e-610e-595d-99ad-4c6db858aea6"
   }

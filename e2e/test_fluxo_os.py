@@ -49,6 +49,11 @@ def billing_confirma(tipo):
     pytest.skip(PENDENTE)
 
 
+@when(parsers.parse('o Billing responde "{tipo}" com o motivo "{motivo}"'))
+def billing_responde_com_motivo(tipo, motivo):
+    pytest.skip(PENDENTE)
+
+
 @when(parsers.parse('a resposta "{tipo}" é entregue duas vezes com o mesmo messageId'))
 def resposta_duplicada(tipo):
     pytest.skip(PENDENTE)

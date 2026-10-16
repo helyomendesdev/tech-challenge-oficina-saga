@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://oficina-saga.fiap/contrato/schemas/comandos/CancelarOrcamento.schema.json",
   "title": "CancelarOrcamento",
-  "description": "OS Service -> Billing: compensacao; invalida o orcamento (e estorna, se houver pagamento).",
+  "description": "OS Service -> Billing: compensacao; invalida o orcamento.",
   "allOf": [
     {
       "$ref": "../envelope.schema.json"

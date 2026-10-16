@@ -27,7 +27,7 @@
           "$ref": "../comum.schema.json#/definitions/uuid"
         },
         "motivo": {
-          "$ref": "../comum.schema.json#/definitions/motivoCancelamento"
+          "$ref": "../comum.schema.json#/definitions/motivoReversao"
         }
       }
     }

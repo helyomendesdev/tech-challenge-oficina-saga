@@ -1,4 +1,4 @@
-# Fluxo da Saga da Ordem de Serviço (v0.1)
+# Fluxo da Saga da Ordem de Serviço (v1)
 
 Orquestrador: OS Service ([ADR-001](adr-001-saga-orquestrada.md)). Mensagens: [`contrato/asyncapi.yaml`](../contrato/asyncapi.yaml).
 
@@ -20,6 +20,9 @@ sequenceDiagram
     Note over OS: AGUARDANDO_APROVACAO
     Cliente->>BIL: aprova o orçamento
     BIL-->>OS: OrcamentoAprovado
+    OS->>BIL: SolicitarPagamento
+    Note over OS: PAGAMENTO_SOLICITADO (o Billing cobra no Mercado Pago)
+    BIL-->>OS: PagamentoConfirmado
     OS->>EXE: IniciarExecucao (oficina-execucao-comandos.fifo)
     Note over OS: EXECUCAO_SOLICITADA
     EXE-->>OS: ExecucaoIniciada
@@ -30,7 +33,7 @@ sequenceDiagram
 
 ## Compensação
 
-Falha **depois** de o orçamento existir desfaz o que já foi feito, na ordem inversa.
+Falha **depois** de o orçamento existir desfaz o que já foi feito, na ordem inversa: execução, pagamento, orçamento.
 
 ```mermaid
 sequenceDiagram
@@ -39,10 +42,28 @@ sequenceDiagram
     participant BIL as Billing
     participant EXE as Execução
 
-    Note over OS: EXECUCAO_SOLICITADA (orçamento aprovado)
+    Note over OS: EXECUCAO_SOLICITADA (pagamento confirmado)
     EXE-->>OS: ExecucaoFalhou (ex.: PECA_SEM_ESTOQUE)
     Note over OS: COMPENSANDO
+    OS->>BIL: EstornarPagamento (motivo EXECUCAO_FALHOU)
+    BIL-->>OS: PagamentoEstornado
     OS->>BIL: CancelarOrcamento (motivo EXECUCAO_FALHOU)
+    BIL-->>OS: OrcamentoCancelado
+    Note over OS: CANCELADA
+```
+
+Variação — o pagamento falha (nada a estornar, só o orçamento é desfeito):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant OS as OS Service (orquestrador)
+    participant BIL as Billing
+
+    Note over OS: PAGAMENTO_SOLICITADO
+    BIL-->>OS: PagamentoFalhou (RECUSADO, EXPIRADO ou ERRO_PROVEDOR)
+    Note over OS: COMPENSANDO
+    OS->>BIL: CancelarOrcamento (motivo PAGAMENTO_FALHOU)
     BIL-->>OS: OrcamentoCancelado
     Note over OS: CANCELADA
 ```
@@ -60,7 +81,9 @@ sequenceDiagram
     OS->>EXE: CancelarExecucao (motivo CANCELADO_PELO_CLIENTE)
     Note over OS: COMPENSANDO
     EXE-->>OS: ExecucaoCancelada
-    OS->>BIL: CancelarOrcamento
+    OS->>BIL: EstornarPagamento (motivo CANCELADO_PELO_CLIENTE)
+    BIL-->>OS: PagamentoEstornado
+    OS->>BIL: CancelarOrcamento (motivo CANCELADO_PELO_CLIENTE)
     BIL-->>OS: OrcamentoCancelado
     Note over OS: CANCELADA
 ```
@@ -75,13 +98,15 @@ stateDiagram-v2
     INICIADA --> ORCAMENTO_SOLICITADO: envia GerarOrcamento
     ORCAMENTO_SOLICITADO --> AGUARDANDO_APROVACAO: OrcamentoGerado
     ORCAMENTO_SOLICITADO --> CANCELADA: OrcamentoFalhou
-    AGUARDANDO_APROVACAO --> EXECUCAO_SOLICITADA: OrcamentoAprovado, envia IniciarExecucao
+    AGUARDANDO_APROVACAO --> PAGAMENTO_SOLICITADO: OrcamentoAprovado, envia SolicitarPagamento
     AGUARDANDO_APROVACAO --> CANCELADA: OrcamentoRecusado (em aberto)
+    PAGAMENTO_SOLICITADO --> EXECUCAO_SOLICITADA: PagamentoConfirmado, envia IniciarExecucao
+    PAGAMENTO_SOLICITADO --> COMPENSANDO: PagamentoFalhou, envia CancelarOrcamento
     EXECUCAO_SOLICITADA --> EM_EXECUCAO: ExecucaoIniciada
-    EXECUCAO_SOLICITADA --> COMPENSANDO: ExecucaoFalhou, envia CancelarOrcamento
+    EXECUCAO_SOLICITADA --> COMPENSANDO: ExecucaoFalhou, envia EstornarPagamento
     EM_EXECUCAO --> CONCLUIDA: ExecucaoFinalizada
     EM_EXECUCAO --> COMPENSANDO: ExecucaoFalhou ou cancelamento, envia CancelarExecucao
-    COMPENSANDO --> COMPENSANDO: ExecucaoCancelada, envia CancelarOrcamento
+    COMPENSANDO --> COMPENSANDO: ExecucaoCancelada, envia EstornarPagamento; PagamentoEstornado, envia CancelarOrcamento
     COMPENSANDO --> CANCELADA: OrcamentoCancelado
     CONCLUIDA --> [*]
     CANCELADA --> [*]
@@ -93,7 +118,9 @@ Regras do orquestrador:
 - Toda transição grava o estado novo e o próximo comando na mesma transação (outbox).
 - Comando disparado por gatilho externo (abrir a Saga, cliente cancelar) sai com `causationId` nulo; resposta sempre tem causa, e o `causationId` dela é o `messageId` do comando que responde (`contrato/schemas/envelope.schema.json`).
 - `OrcamentoFalhou` não precisa de compensação: nenhum orçamento foi criado.
-- Em `COMPENSANDO`, o comando enviado ao entrar no estado (`CancelarOrcamento` ou `CancelarExecucao`, conforme a transição) leva o motivo da própria transição (`EXECUCAO_FALHOU` ou `CANCELADO_PELO_CLIENTE`). O `CancelarOrcamento` do auto-laço (`ExecucaoCancelada`) repete o motivo com que a compensação foi aberta (`motivo: herdado` na tabela `contrato/saga-estados.yaml`): o orquestrador guarda esse motivo na Saga. O validador exige `herdado` ali porque `COMPENSANDO` é entrado com mais de um motivo.
+- `PagamentoFalhou` só desfaz o orçamento (`CancelarOrcamento`, motivo `PAGAMENTO_FALHOU`): nenhum pagamento foi confirmado, então não há estorno.
+- A compensação segue a ordem inversa da ida: execução (`CancelarExecucao`), pagamento (`EstornarPagamento`), orçamento (`CancelarOrcamento`). Cada passo só sai depois da confirmação do anterior (`ExecucaoCancelada`, `PagamentoEstornado`).
+- Em `COMPENSANDO`, o comando enviado ao entrar no estado (`CancelarOrcamento`, `EstornarPagamento` ou `CancelarExecucao`, conforme a transição) leva o motivo da própria transição (`PAGAMENTO_FALHOU`, `EXECUCAO_FALHOU` ou `CANCELADO_PELO_CLIENTE`). Os comandos dos auto-laços (`EstornarPagamento` após `ExecucaoCancelada`, `CancelarOrcamento` após `PagamentoEstornado`) repetem o motivo com que a compensação foi aberta (`motivo: herdado` na tabela `contrato/saga-estados.yaml`): o orquestrador guarda esse motivo na Saga. O validador exige `herdado` ali porque `COMPENSANDO` é entrado com mais de um motivo.
 
 ## Correspondência com o status da OS no monólito
 
@@ -102,10 +129,10 @@ Status de hoje em `atendimento/domain/enums.py` e transições em `atendimento/d
 | Estado da Saga | Status da OS (monólito) | Observação |
 |---|---|---|
 | — (antes da Saga) | `RECEBIDA`, `DIAGNOSTICO` | A Saga começa quando o diagnóstico termina — **em aberto** |
-| `INICIADA`, `ORCAMENTO_SOLICITADO`, `AGUARDANDO_APROVACAO` | `AGUARDANDO` | |
+| `INICIADA`, `ORCAMENTO_SOLICITADO`, `AGUARDANDO_APROVACAO`, `PAGAMENTO_SOLICITADO` | `AGUARDANDO` | A OS só passa a `EXECUCAO` depois do pagamento confirmado |
 | `EXECUCAO_SOLICITADA`, `EM_EXECUCAO` | `EXECUCAO` | |
 | `CONCLUIDA` | `FINALIZADA` | |
 | — (depois da Saga) | `ENTREGUE` | Entrega do veículo fica fora da Saga |
 | `COMPENSANDO`, `CANCELADA` | `CANCELADA` | |
 
-Divergência a decidir: no monólito, `AGUARDANDO → DIAGNOSTICO` é permitido (recusar o orçamento volta ao diagnóstico, não cancela). Na v0.1 da Saga, `OrcamentoRecusado` leva a `CANCELADA`. Ver [`questoes-abertas.md`](questoes-abertas.md).
+Divergência a decidir: no monólito, `AGUARDANDO → DIAGNOSTICO` é permitido (recusar o orçamento volta ao diagnóstico, não cancela). Na v1 da Saga, `OrcamentoRecusado` leva a `CANCELADA`. Ver [`questoes-abertas.md`](questoes-abertas.md).

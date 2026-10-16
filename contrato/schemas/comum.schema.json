@@ -27,6 +27,12 @@
       }
     },
     "motivoCancelamento": {
+      "description": "Motivo do CancelarOrcamento: os de motivoReversao mais PAGAMENTO_FALHOU (o pagamento nunca foi confirmado, so o orcamento precisa ser desfeito).",
+      "type": "string",
+      "enum": ["EXECUCAO_FALHOU", "CANCELADO_PELO_CLIENTE", "TIMEOUT", "PAGAMENTO_FALHOU"]
+    },
+    "motivoReversao": {
+      "description": "Motivo de CancelarExecucao e EstornarPagamento: so existe o que reverter depois que o pagamento foi confirmado.",
       "type": "string",
       "enum": ["EXECUCAO_FALHOU", "CANCELADO_PELO_CLIENTE", "TIMEOUT"]
     },

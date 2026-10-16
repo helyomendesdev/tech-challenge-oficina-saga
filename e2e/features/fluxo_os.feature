@@ -13,6 +13,8 @@ Funcionalidade: Saga da ordem de serviço ponta a ponta
     Então o Billing recebe o comando "GerarOrcamento"
     E a Saga fica em "AGUARDANDO_APROVACAO" depois de "OrcamentoGerado"
     Quando o cliente aprova o orçamento
+    Então o Billing recebe o comando "SolicitarPagamento"
+    Quando o Billing confirma com "PagamentoConfirmado"
     Então a Execução recebe o comando "IniciarExecucao"
     Quando a Execução finaliza todos os serviços
     Então a Saga fica em "CONCLUIDA"
@@ -22,9 +24,22 @@ Funcionalidade: Saga da ordem de serviço ponta a ponta
   Cenário: Compensação quando a execução falha
     Quando o orquestrador inicia a Saga da OS
     E o cliente aprova o orçamento
+    E o Billing confirma com "PagamentoConfirmado"
     E a Execução responde "ExecucaoFalhou" com o código "PECA_SEM_ESTOQUE"
     Então a Saga fica em "COMPENSANDO"
-    E o Billing recebe o comando "CancelarOrcamento" com o motivo "EXECUCAO_FALHOU"
+    E o Billing recebe o comando "EstornarPagamento" com o motivo "EXECUCAO_FALHOU"
+    Quando o Billing confirma com "PagamentoEstornado"
+    Então o Billing recebe o comando "CancelarOrcamento" com o motivo "EXECUCAO_FALHOU"
+    Quando o Billing confirma com "OrcamentoCancelado"
+    Então a Saga fica em "CANCELADA"
+    E a OS fica com status "CANCELADA"
+
+  Cenário: Compensação quando o pagamento falha
+    Quando o orquestrador inicia a Saga da OS
+    E o cliente aprova o orçamento
+    E o Billing responde "PagamentoFalhou" com o motivo "RECUSADO"
+    Então a Saga fica em "COMPENSANDO"
+    E o Billing recebe o comando "CancelarOrcamento" com o motivo "PAGAMENTO_FALHOU"
     Quando o Billing confirma com "OrcamentoCancelado"
     Então a Saga fica em "CANCELADA"
     E a OS fica com status "CANCELADA"
