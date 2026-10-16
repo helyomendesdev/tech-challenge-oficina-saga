@@ -4,11 +4,12 @@ import functools
 import uuid
 from datetime import datetime, timezone
 
-from oficina_saga import contrato
-
 
 @functools.lru_cache(maxsize=None)
 def _validador_de(raiz):
+    # Import preguicoso: `montar` so usa a stdlib; jsonschema (extra `validacao`) so e exigido ao validar.
+    from oficina_saga import contrato
+
     schemas, registro = contrato.montar_registro(raiz)
     return contrato.montar_validador(contrato.schemas_por_tipo(schemas), registro)
 
