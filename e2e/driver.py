@@ -23,29 +23,43 @@ class Mensagem:
 
 
 class DriverSaga(Protocol):
+    """Cada operacao diz "isto acontece"; o motor decide como.
+
+    O motor de referencia PROVOCA o que o step descreve (entrega a resposta do
+    participante, avanca a maquina em memoria) e confere na hora. O motor da
+    stack real ESPERA aparecer no historico da rota de consulta da Saga do OS
+    Service (contrato/os-consulta-saga.openapi.yaml), com timeout.
+    """
+
+    def usar_cenario(self, nome: str | None) -> None:
+        """Informa o cenario (`feliz`, `falha-pagamento`, `falha-execucao`); so a stack real precisa dele."""
+
     def iniciar_saga(self, *, cliente_id: int, veiculo_id: int, servicos: list, pecas: list) -> None:
         """Abre a Saga para uma OS com o diagnostico concluido."""
 
-    def entregar_resposta(
-        self, tipo: str, *, motivo: str | None = None, codigo: str | None = None,
-        com_traceparent: bool = True,
-    ) -> str:
-        """Um participante responde `tipo` ao orquestrador; devolve o messageId da resposta."""
+    def aprovar_orcamento(self) -> None:
+        """O cliente aprova o orcamento (que ja foi gerado)."""
 
-    def entregar_resposta_duplicada(self, tipo: str) -> str:
-        """Entrega `tipo` duas vezes com o mesmo messageId (entrega SQS "pelo menos uma vez")."""
+    def acontece_resposta(self, tipo: str, *, motivo: str | None = None, codigo: str | None = None) -> None:
+        """A resposta `tipo` de um participante chega ao orquestrador (uma vez por Saga)."""
 
-    def estado_saga(self) -> str:
-        """Estado atual da Saga."""
+    def esperar_estado(self, estado: str) -> None:
+        """A Saga chega ao estado `estado`; AssertionError se nao chegar."""
+
+    def esperar_comando(self, destino: str, tipo: str, motivo: str | None = None) -> None:
+        """O orquestrador envia o comando `tipo` (a `destino`, com `motivo` quando dado)."""
 
     def status_os(self) -> str:
         """Status da OS que o estado atual da Saga espelha."""
 
-    def mensagens(self) -> list[Mensagem]:
-        """Todas as mensagens trocadas, em ordem, com envelope e MessageAttributes."""
+    def conferir_correlacao(self) -> None:
+        """Todas as mensagens da Saga compartilham o mesmo requestId e trace-id; AssertionError se nao."""
+
+    def entregar_resposta_duplicada(self, tipo: str) -> str:
+        """So referencia: entrega `tipo` duas vezes com o mesmo messageId (SQS "pelo menos uma vez")."""
 
     def processamento(self) -> list[tuple[str, str]]:
-        """(messageId, resultado) de cada resposta recebida: aplicada, duplicada ou sem_transicao."""
+        """So referencia: (messageId, resultado) de cada resposta: aplicada, duplicada ou sem_transicao."""
 
 
 def criar_driver(nome: str | None = None) -> DriverSaga:
@@ -58,14 +72,8 @@ def criar_driver(nome: str | None = None) -> DriverSaga:
 
         return DriverReferencia()
     if nome == "stack-real":
-        try:
-            from e2e.driver_stack_real import DriverStackReal
-        except ModuleNotFoundError as erro:
-            if erro.name != "e2e.driver_stack_real":
-                raise
-            raise RuntimeError(
-                "SAGA_E2E_DRIVER=stack-real, mas e2e/driver_stack_real.py ainda nao existe"
-            ) from erro
+        from e2e.driver_stack_real import DriverStackReal
+
         return DriverStackReal()
     raise ValueError(
         f"SAGA_E2E_DRIVER={nome!r} desconhecido; motores aceitos: {', '.join(MOTORES)}"

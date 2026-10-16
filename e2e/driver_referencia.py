@@ -7,6 +7,7 @@ contrato/exemplos/<tipo>.json, ajustados aos ids da Saga em curso.
 """
 
 import copy
+import unicodedata
 import uuid
 
 import yaml
@@ -24,6 +25,12 @@ def _destinos_dos_comandos(raiz):
             for comando in dados["messages"]:
                 destinos[comando] = canal[: -len("Comandos")].capitalize()
     return destinos
+
+
+def _chave(nome):
+    """Participante sem acento e em minusculas: "Execução" casa com "Execucao"."""
+    sem_acento = unicodedata.normalize("NFD", nome)
+    return "".join(c for c in sem_acento if not unicodedata.combining(c)).lower()
 
 
 class DriverReferencia:
@@ -55,6 +62,45 @@ class DriverReferencia:
         ]
         assert len(abertura) == 1, "a maquina deve ter um unico gatilho de abertura"
         self._aplicar(abertura[0], causa=None)
+
+    def usar_cenario(self, nome):
+        """A referencia nao distingue cenarios: quem decide o caminho e a resposta que o step entrega."""
+
+    def aprovar_orcamento(self):
+        self.acontece_resposta("OrcamentoGerado")
+        self.entregar_resposta("OrcamentoAprovado")
+
+    def acontece_resposta(self, tipo, *, motivo=None, codigo=None):
+        """Provoca a resposta `tipo` se ela ainda nao chegou a esta Saga."""
+        if not any(m.direcao == "resposta" and m.envelope["type"] == tipo for m in self._mensagens):
+            self.entregar_resposta(tipo, motivo=motivo, codigo=codigo)
+
+    def esperar_estado(self, estado):
+        """Imediato: a maquina em memoria ja esta no estado que esta."""
+        assert self._estado == estado, f"Saga em {self._estado}, esperado {estado}"
+
+    def esperar_comando(self, destino, tipo, motivo=None):
+        enviados = [m for m in self._mensagens if m.direcao == "comando"]
+        comandos = [
+            m.envelope for m in enviados
+            if _chave(m.destino) == _chave(destino) and m.envelope["type"] == tipo
+        ]
+        assert comandos, (
+            f"{destino} nao recebeu {tipo}; comandos enviados: "
+            f"{[(m.destino, m.envelope['type']) for m in enviados]}"
+        )
+        if motivo is not None:
+            assert comandos[-1]["payload"].get("motivo") == motivo
+
+    def conferir_correlacao(self):
+        mensagens = self._mensagens
+        assert mensagens, "nenhuma mensagem trocada"
+        sem_traceparent = [m.envelope["type"] for m in mensagens if "traceparent" not in m.atributos]
+        assert not sem_traceparent, f"mensagens sem traceparent nos MessageAttributes: {sem_traceparent}"
+        trace_ids = {rastreio.parse_traceparent(m.atributos["traceparent"]["StringValue"]).trace_id for m in mensagens}
+        assert len(trace_ids) == 1, f"mais de um trace-id na Saga: {sorted(trace_ids)}"
+        request_ids = {m.envelope["requestId"] for m in mensagens}
+        assert len(request_ids) == 1, f"mais de um requestId na Saga: {sorted(request_ids)}"
 
     def entregar_resposta(self, tipo, *, motivo=None, codigo=None, com_traceparent=True):
         mensagem, atributos = self._participante_responde(tipo, motivo, codigo, com_traceparent)

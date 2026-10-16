@@ -1,42 +1,15 @@
 """Steps do BDD ponta a ponta da Saga.
 
 Os steps falam com o motor da Saga pela fixture `driver` (ver e2e/driver.py e
-SAGA_E2E_DRIVER). Billing e Execucao respondem so quando um step manda; onde o
-cenario omite uma resposta intermediaria (ex.: o orcamento gerado antes de o
-cliente aprovar), o step a entrega antes, uma unica vez.
+SAGA_E2E_DRIVER) e dizem "isto acontece": o motor de referencia provoca, o da
+stack real espera aparecer no historico da consulta da Saga. Onde o cenario
+omite uma resposta intermediaria (ex.: o orcamento gerado antes de o cliente
+aprovar), o step a exige antes, uma unica vez.
 """
-
-import unicodedata
 
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from oficina_saga import rastreio
-
 scenarios("features/fluxo_os.feature")
-
-
-def _chave(nome):
-    """Participante sem acento e em minusculas: "Execução" casa com "Execucao"."""
-    sem_acento = unicodedata.normalize("NFD", nome)
-    return "".join(c for c in sem_acento if not unicodedata.combining(c)).lower()
-
-
-def _garantir_resposta(driver, tipo):
-    """Entrega `tipo` se ele ainda nao chegou ao orquestrador nesta Saga."""
-    if not any(m.direcao == "resposta" and m.envelope["type"] == tipo for m in driver.mensagens()):
-        driver.entregar_resposta(tipo)
-
-
-def _comando_recebido(driver, participante, tipo):
-    comandos = [
-        m.envelope for m in driver.mensagens()
-        if m.direcao == "comando" and _chave(m.destino) == _chave(participante) and m.envelope["type"] == tipo
-    ]
-    assert comandos, (
-        f"{participante} nao recebeu {tipo}; comandos enviados: "
-        f"{[(m.destino, m.envelope['type']) for m in driver.mensagens() if m.direcao == 'comando']}"
-    )
-    return comandos[-1]
 
 
 @given(parsers.parse("uma OS com diagnóstico concluído para o cliente {cliente_id:d} e o veículo {veiculo_id:d}"))
@@ -57,29 +30,28 @@ def iniciar_saga(driver, contexto):
 
 @when("o cliente aprova o orçamento")
 def aprovar_orcamento(driver):
-    _garantir_resposta(driver, "OrcamentoGerado")
-    driver.entregar_resposta("OrcamentoAprovado")
+    driver.aprovar_orcamento()
 
 
 @when("a Execução finaliza todos os serviços")
 def finalizar_execucao(driver):
-    _garantir_resposta(driver, "ExecucaoIniciada")
-    driver.entregar_resposta("ExecucaoFinalizada")
+    driver.acontece_resposta("ExecucaoIniciada")
+    driver.acontece_resposta("ExecucaoFinalizada")
 
 
 @when(parsers.parse('a Execução responde "{tipo}" com o código "{codigo}"'))
 def execucao_responde_erro(driver, tipo, codigo):
-    driver.entregar_resposta(tipo, codigo=codigo)
+    driver.acontece_resposta(tipo, codigo=codigo)
 
 
 @when(parsers.parse('o Billing confirma com "{tipo}"'))
 def billing_confirma(driver, tipo):
-    driver.entregar_resposta(tipo)
+    driver.acontece_resposta(tipo)
 
 
 @when(parsers.parse('o Billing responde "{tipo}" com o motivo "{motivo}"'))
 def billing_responde_com_motivo(driver, tipo, motivo):
-    driver.entregar_resposta(tipo, motivo=motivo)
+    driver.acontece_resposta(tipo, motivo=motivo)
 
 
 @when(parsers.parse('a resposta "{tipo}" é entregue duas vezes com o mesmo messageId'))
@@ -89,29 +61,28 @@ def resposta_duplicada(driver, contexto, tipo):
 
 @then(parsers.parse('o Billing recebe o comando "{tipo}" com o motivo "{motivo}"'))
 def billing_recebe_com_motivo(driver, tipo, motivo):
-    comando = _comando_recebido(driver, "Billing", tipo)
-    assert comando["payload"].get("motivo") == motivo
+    driver.esperar_comando("Billing", tipo, motivo=motivo)
 
 
 @then(parsers.re(r'o Billing recebe o comando "(?P<tipo>\w+)"$'))
 def billing_recebe(driver, tipo):
-    _comando_recebido(driver, "Billing", tipo)
+    driver.esperar_comando("Billing", tipo)
 
 
 @then(parsers.parse('a Execução recebe o comando "{tipo}"'))
 def execucao_recebe(driver, tipo):
-    _comando_recebido(driver, "Execução", tipo)
+    driver.esperar_comando("Execução", tipo)
 
 
 @then(parsers.re(r'a Saga fica em "(?P<estado>\w+)" depois de "(?P<tipo>\w+)"'))
 def saga_em_estado_apos(driver, estado, tipo):
-    _garantir_resposta(driver, tipo)
-    assert driver.estado_saga() == estado
+    driver.acontece_resposta(tipo)
+    driver.esperar_estado(estado)
 
 
 @then(parsers.re(r'a Saga fica em "(?P<estado>\w+)"$'))
 def saga_em_estado(driver, estado):
-    assert driver.estado_saga() == estado
+    driver.esperar_estado(estado)
 
 
 @then(parsers.parse('a OS fica com status "{status}"'))
@@ -121,14 +92,7 @@ def os_com_status(driver, status):
 
 @then("todas as mensagens da Saga compartilham o mesmo requestId e trace-id")
 def mesma_correlacao(driver):
-    mensagens = driver.mensagens()
-    assert mensagens, "nenhuma mensagem trocada"
-    sem_traceparent = [m.envelope["type"] for m in mensagens if "traceparent" not in m.atributos]
-    assert not sem_traceparent, f"mensagens sem traceparent nos MessageAttributes: {sem_traceparent}"
-    trace_ids = {rastreio.parse_traceparent(m.atributos["traceparent"]["StringValue"]).trace_id for m in mensagens}
-    assert len(trace_ids) == 1, f"mais de um trace-id na Saga: {sorted(trace_ids)}"
-    request_ids = {m.envelope["requestId"] for m in mensagens}
-    assert len(request_ids) == 1, f"mais de um requestId na Saga: {sorted(request_ids)}"
+    driver.conferir_correlacao()
 
 
 @then("o orquestrador processa a resposta uma única vez")
