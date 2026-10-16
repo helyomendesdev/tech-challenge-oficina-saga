@@ -79,9 +79,17 @@ def _valor(message_attributes, nome):
     return None
 
 
-def extrair(message_attributes):
-    """Le (traceparent, tracestate); sem traceparent valido, abre trace novo."""
+def extrair_recebido(message_attributes):
+    """Le (traceparent, tracestate) como chegaram; sem traceparent valido, (None, None)."""
     traceparent = _valor(message_attributes, "traceparent")
     if not traceparent_valido(traceparent):
-        return novo_traceparent(), None
+        return None, None
     return traceparent, _valor(message_attributes, "tracestate") or None
+
+
+def extrair(message_attributes):
+    """Le (traceparent, tracestate); sem traceparent valido, abre trace novo."""
+    traceparent, tracestate = extrair_recebido(message_attributes)
+    if traceparent is None:
+        return novo_traceparent(), None
+    return traceparent, tracestate

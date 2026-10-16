@@ -77,6 +77,17 @@ def test_accept_recebe_transport_type_queue_e_o_traceparent(nr_falso):
     assert nr_falso["accept"] == [({"traceparent": W3C, "tracestate": "k=v"}, "Queue")]
 
 
+@pytest.mark.parametrize(
+    "atributos",
+    [None, {}, {"traceparent": {"DataType": "String", "StringValue": "lixo"}}],
+    ids=["none", "vazio", "invalido"],
+)
+def test_sem_traceparent_valido_o_agente_comeca_trace_proprio(nr_falso, atributos):
+    efetivo = a.aceitar_recebido(atributos)
+    assert nr_falso["accept"] == []
+    assert rastreio.traceparent_valido(efetivo)
+
+
 def test_sem_newrelic_cai_no_rastreio_filho_do_atual(sem_nr):
     attrs = a.atributos_para_envio(traceparent_atual=W3C)
     filho = rastreio.parse_traceparent(attrs["traceparent"]["StringValue"])

@@ -59,8 +59,14 @@ def atributos_para_envio(message_attributes=None, *, traceparent_atual=None):
 
 
 def aceitar_recebido(message_attributes):
-    """Aceita o contexto da mensagem recebida; devolve o traceparent efetivo."""
-    traceparent, tracestate = rastreio.extrair(message_attributes)
+    """Aceita o contexto da mensagem recebida; devolve o traceparent efetivo.
+
+    Sem traceparent valido na mensagem nao ha pai a aceitar: o agente nao e
+    chamado (comeca trace proprio) e o devolvido e um traceparent novo.
+    """
+    traceparent, tracestate = rastreio.extrair_recebido(message_attributes)
+    if traceparent is None:
+        return rastreio.novo_traceparent()
     agente = _agente()
     if agente is not None:
         cabecalhos = {"traceparent": traceparent}
