@@ -61,3 +61,26 @@ def test_validador_recusa_estado_fora_do_enum():
     exemplo = json.loads(json.dumps(SCHEMAS["ConsultaSaga"]["example"]))
     exemplo["sagas"][0]["estado"] = "INVENTADO"
     assert list(_validador().iter_errors(exemplo))
+
+
+def test_historico_traz_request_id_e_trace_id():
+    mensagem = SCHEMAS["MensagemDaSaga"]
+    assert {"requestId", "traceId"} <= set(mensagem["required"])
+    request_id = mensagem["properties"]["requestId"]
+    for campo in ("type", "minLength", "maxLength"):
+        assert request_id[campo] == envelope["properties"]["requestId"][campo]
+    trace_id = Draft7Validator(mensagem["properties"]["traceId"])
+    assert not list(trace_id.iter_errors("4bf92f3577b34da6a3ce929d0e0e4736"))
+    for invalido in ("4BF92F3577B34DA6A3CE929D0E0E4736", "4bf92f35", "g" * 32, "0" * 31):
+        assert list(trace_id.iter_errors(invalido)), invalido
+
+
+def test_historico_sem_trace_id_e_recusado():
+    exemplo = json.loads(json.dumps(SCHEMAS["ConsultaSaga"]["example"]))
+    del exemplo["sagas"][0]["historico"][0]["traceId"]
+    assert list(_validador().iter_errors(exemplo))
+
+
+def test_orcamento_id_e_opcional_na_saga():
+    assert "orcamentoId" in SCHEMAS["Saga"]["properties"]
+    assert "orcamentoId" not in SCHEMAS["Saga"]["required"]
