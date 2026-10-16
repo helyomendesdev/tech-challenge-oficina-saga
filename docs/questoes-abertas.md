@@ -26,15 +26,15 @@ No monólito, `DIAGNOSTICO` é status da OS antes de `AGUARDANDO`, e `AGUARDANDO
 
 | Serviço | Responsável | Linguagem | Banco |
 |---|---|---|---|
-| OS Service (+ orquestrador) | Hélio | ? | SQL |
+| OS Service (+ orquestrador) | Hélio | Python 3.11 / Django 5.1 | PostgreSQL |
 | Billing (+ Mercado Pago, JWT) | Lucas | ? | ? |
-| Execução | Sophia | ? | NoSQL |
+| Execução | Sophia | ? | NoSQL (DynamoDB, pela descrição do repo) |
 
 O contrato é independente de linguagem (JSON Schema). Com Python em algum serviço, o `scripts/validar_contrato.py` serve de referência de validação; em outras linguagens, cada serviço valida contra os mesmos schemas com a biblioteca da sua stack.
 
 ## 4. Tipo do `osId`
 
-A v1 usa **inteiro** porque a OS do monólito usa `BigAutoField` (`app/settings.py`, `DEFAULT_AUTO_FIELD`). Se o OS Service novo adotar UUID, muda o schema em `contrato/schemas/comum.schema.json` (`idNumerico`) — decisão do Hélio.
+A v1 usa **inteiro** porque a OS do monólito usa `BigAutoField` (`app/settings.py`, `DEFAULT_AUTO_FIELD`). Se o OS Service novo adotar UUID, muda o schema em `contrato/schemas/comum.schema.json` (`idNumerico`) — decisão do Hélio. O `-os` atual mantém inteiro (`SagaInstance.os_id` é `PositiveIntegerField`); falta só ele confirmar que fica assim.
 
 ## 5. `X-Correlation-Id` no envelope
 
