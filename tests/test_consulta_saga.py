@@ -8,6 +8,7 @@ CONTRATO = Path(__file__).resolve().parent.parent / "contrato"
 openapi = yaml.safe_load((CONTRATO / "os-consulta-saga.openapi.yaml").read_text(encoding="utf-8"))
 maquina = yaml.safe_load((CONTRATO / "saga-estados.yaml").read_text(encoding="utf-8"))
 envelope = json.loads((CONTRATO / "schemas" / "envelope.schema.json").read_text(encoding="utf-8"))
+comum = json.loads((CONTRATO / "schemas" / "comum.schema.json").read_text(encoding="utf-8"))["definitions"]
 
 ROTA = openapi["paths"]["/api/v1/ordens-servico/{id}/saga"]["get"]
 SCHEMAS = openapi["components"]["schemas"]
@@ -84,3 +85,10 @@ def test_historico_sem_trace_id_e_recusado():
 def test_orcamento_id_e_opcional_na_saga():
     assert "orcamentoId" in SCHEMAS["Saga"]["properties"]
     assert "orcamentoId" not in SCHEMAS["Saga"]["required"]
+
+
+def test_erro_repete_o_formato_do_comum():
+    erro = SCHEMAS["Erro"]["properties"]
+    assert erro["codigo"]["pattern"] == comum["erro"]["properties"]["codigo"]["pattern"]
+    assert erro["mensagem"]["minLength"] == comum["erro"]["properties"]["mensagem"]["minLength"]
+    assert erro["mensagem"]["maxLength"] == comum["erro"]["properties"]["mensagem"]["maxLength"]

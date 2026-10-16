@@ -76,9 +76,12 @@ components:
         codigo:
           type: string
           description: Codigo de erro em MAIUSCULAS.
+          pattern: "^[A-Z][A-Z0-9_]*$"
           example: SAGA_NAO_ENCONTRADA
         mensagem:
           type: string
+          minLength: 1
+          maxLength: 500
           description: Texto legivel do erro.
           example: Ordem de Servico sem Saga.
     ConsultaSaga:
