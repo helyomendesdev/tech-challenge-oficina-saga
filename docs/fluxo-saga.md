@@ -135,4 +135,6 @@ Status de hoje em `atendimento/domain/enums.py` e transições em `atendimento/d
 | — (depois da Saga) | `ENTREGUE` | Entrega do veículo fica fora da Saga |
 | `COMPENSANDO`, `CANCELADA` | `CANCELADA` | |
 
+Esta tabela é conferida pelo validador (`scripts/validar_contrato.py`) contra o bloco `status_os` de `contrato/saga-estados.yaml`.
+
 Divergência a decidir: no monólito, `AGUARDANDO → DIAGNOSTICO` é permitido (recusar o orçamento volta ao diagnóstico, não cancela). Na v1 da Saga, `OrcamentoRecusado` leva a `CANCELADA`. Ver [`questoes-abertas.md`](questoes-abertas.md).
