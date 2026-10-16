@@ -15,9 +15,6 @@
     "version": {
       "const": 1
     },
-    "causationId": {
-      "$ref": "../comum.schema.json#/definitions/uuid"
-    },
     "payload": {
       "type": "object",
       "additionalProperties": false,

@@ -2,10 +2,10 @@
   "messageId": "50a92ff0-40d7-538e-8fe9-387a01e04f3b",
   "type": "OrcamentoFalhou",
   "version": 1,
-  "sagaId": "0b9e7d3c-5a2f-4e8b-8c1d-7f6a5e4d3c22",
-  "osId": 102,
-  "causationId": "1ac08a7d-09cd-5c1b-b9d7-818f1e46c950",
-  "requestId": "req-comp-b4d8f2",
+  "sagaId": "df4d67b7-b1b0-5fc3-a80f-11afcc3d77bd",
+  "osId": 104,
+  "causationId": "96f275f2-6f2d-5c5a-a5f6-1d635e9aa5f3",
+  "requestId": "req-falha-orcamento-707c5b",
   "occurredAt": "2026-10-07T13:30:02Z",
   "payload": {
     "erro": {

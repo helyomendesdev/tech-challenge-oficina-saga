@@ -2,13 +2,13 @@
   "messageId": "ab45c39d-a99d-50f3-abd3-07c8704e36c2",
   "type": "CancelarOrcamento",
   "version": 1,
-  "sagaId": "0b9e7d3c-5a2f-4e8b-8c1d-7f6a5e4d3c22",
+  "sagaId": "3cc31d44-e737-5d3a-b47e-9bf8ca9409a9",
   "osId": 102,
   "causationId": "c31d9e16-aed6-5aa5-b40e-6e1504cd5fb6",
-  "requestId": "req-comp-b4d8f2",
+  "requestId": "req-falha-execucao-9877f3",
   "occurredAt": "2026-10-07T16:10:01Z",
   "payload": {
-    "orcamentoId": "c5e7a9b1-3d4f-4a6c-9d2f-4a6c8e0a2b44",
+    "orcamentoId": "7db89e3e-610e-595d-99ad-4c6db858aea6",
     "motivo": "EXECUCAO_FALHOU"
   }
 }

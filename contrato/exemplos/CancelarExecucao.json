@@ -2,13 +2,13 @@
   "messageId": "477eb82b-91b8-59af-97ed-c6587a13c1ce",
   "type": "CancelarExecucao",
   "version": 1,
-  "sagaId": "0b9e7d3c-5a2f-4e8b-8c1d-7f6a5e4d3c22",
-  "osId": 102,
-  "causationId": "b6a25a46-18fb-5548-a981-e84f5a1bcc87",
-  "requestId": "req-comp-b4d8f2",
+  "sagaId": "42f762d1-45ec-55cf-8846-cf0b3fe0012d",
+  "osId": 103,
+  "causationId": null,
+  "requestId": "req-cancelamento-d26d40",
   "occurredAt": "2026-10-07T16:20:00Z",
   "payload": {
-    "execucaoId": "f8b0d2e4-6a7c-4d9f-b2c4-7d9f1b3d5e66",
+    "execucaoId": "3fd8217d-3ace-5501-b5ef-a428b94d3e06",
     "motivo": "CANCELADO_PELO_CLIENTE"
   }
 }

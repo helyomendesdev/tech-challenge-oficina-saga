@@ -67,6 +67,8 @@ sequenceDiagram
 
 ## Máquina de estados
 
+A fonte das transições é [`contrato/saga-estados.yaml`](../contrato/saga-estados.yaml); o diagrama abaixo é a visualização dela, e `scripts/validar_contrato.py` confere que os dois têm os mesmos pares de transição (estado de origem e de destino). `inicio` e `cancelamento` são gatilhos externos, não mensagens da fila: `inicio` chega por requisição HTTP que abre a Saga, e `cancelamento` é o pedido do cliente com a execução em andamento. O validador também confere o início (`[*]`) e os estados finais do diagrama contra `inicial` e `finais` da tabela. Os rótulos das setas não são conferidos, e o validador também não confere se o código do orquestrador segue a tabela, nem sintaxe Mermaid além da seta simples entre dois estados, a única que ele lê.
+
 ```mermaid
 stateDiagram-v2
     [*] --> INICIADA
@@ -89,7 +91,9 @@ Regras do orquestrador:
 
 - Resposta que não corresponde a uma transição válida do estado atual **não muda o estado**: é registrada e descartada (entrega repetida, por exemplo reprocessamento da DLQ). Com FIFO por `sagaId`, fora de ordem não acontece dentro de uma Saga.
 - Toda transição grava o estado novo e o próximo comando na mesma transação (outbox).
+- Comando disparado por gatilho externo (abrir a Saga, cliente cancelar) sai com `causationId` nulo; resposta sempre tem causa, e o `causationId` dela é o `messageId` do comando que responde (`contrato/schemas/envelope.schema.json`).
 - `OrcamentoFalhou` não precisa de compensação: nenhum orçamento foi criado.
+- Em `COMPENSANDO`, o comando enviado ao entrar no estado (`CancelarOrcamento` ou `CancelarExecucao`, conforme a transição) leva o motivo da própria transição (`EXECUCAO_FALHOU` ou `CANCELADO_PELO_CLIENTE`). O `CancelarOrcamento` do auto-laço (`ExecucaoCancelada`) repete o motivo com que a compensação foi aberta (`motivo: herdado` na tabela `contrato/saga-estados.yaml`): o orquestrador guarda esse motivo na Saga. O validador exige `herdado` ali porque `COMPENSANDO` é entrado com mais de um motivo.
 
 ## Correspondência com o status da OS no monólito
 

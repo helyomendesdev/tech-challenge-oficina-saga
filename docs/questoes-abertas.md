@@ -44,3 +44,21 @@ O ADR-007 do monólito criou o `X-Correlation-Id` para ligar o fluxo de autentic
 ## 6. Timeout de aprovação
 
 Orçamento sem resposta do cliente fica em `AGUARDANDO_APROVACAO` para sempre. `CancelarOrcamento` já aceita o motivo `TIMEOUT`; falta decidir o prazo (sugestão: `validoAte` do `OrcamentoGerado`) e quem dispara (agendamento no OS Service).
+
+## 7. Escopo do `causationId` nulo
+
+Hoje todo comando aceita `causationId` nulo, para cobrir o gatilho externo: abrir a Saga (`GerarOrcamento`), o cliente cancelar (`CancelarExecucao`) e, se entrar, o timeout (`CancelarOrcamento`). Só que `IniciarExecucao` com causa nula também passa no schema, embora sempre seja reação a `OrcamentoAprovado`. Quem pega isso hoje é só o validador de exemplos.
+
+- **A. Manter em todo comando.** Um schema só; o consumidor trata causa nula em qualquer comando.
+- **B. Só nos comandos com gatilho externo** (`GerarOrcamento`, `CancelarExecucao`, e `CancelarOrcamento` se o timeout entrar). Os demais exigem causa não nula no schema.
+
+**Recomendação: B**, quando o timeout for decidido (item 6). Sem isso, `IniciarExecucao` com causa nula continua válido e só o validador de exemplos percebe. Consequência: consumidores passam a poder confiar em causa não nula onde ela sempre existe.
+
+## 8. Qual `requestId` leva o comando de cancelamento
+
+O envelope diz que o `requestId` é o da requisição de origem, repassado inalterado por toda a Saga. O cancelamento pelo cliente é outra requisição HTTP, com identificador próprio. Pergunta: o `CancelarExecucao` leva o `requestId` da Saga ou o da requisição de cancelamento?
+
+- **A. Manter o `requestId` original da Saga.** Tudo que a Saga emite responde a um só identificador. O `requestId` do cancelamento vai para o log da requisição HTTP, à parte.
+- **B. Usar o `requestId` da requisição de cancelamento a partir dali.** Cada requisição HTTP tem a sua linha no rastro, mas a Saga passa a carregar mais de um `requestId`.
+
+**Recomendação: A.** A pergunta "o que aconteceu com esta OS" fica respondida por um só identificador. O `requestId` do cancelamento aparece no log da requisição HTTP, e o `causationId` nulo do comando marca o ponto de entrada.

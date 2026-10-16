@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ASYNCAPI_CLI_VERSAO: "3.6.0"
+      # html-template 2.x: a linha compativel com o gerador 1.x embutido no CLI 3.x (a 3.x pede gerador >= 2)
+      ASYNCAPI_HTML_VERSAO: "2.3.14"
     steps:
       - uses: actions/checkout@v4
 
@@ -42,3 +44,17 @@ jobs:
             echo "::error::ha steps no .feature sem definicao em e2e/test_fluxo_os.py"
             exit 1
           fi
+
+      - name: Documentacao HTML do contrato
+        # roda dentro de contrato/: o gerador resolve os $ref a partir do diretorio corrente
+        working-directory: contrato
+        run: >
+          npx -y "@asyncapi/cli@${ASYNCAPI_CLI_VERSAO}" generate fromTemplate asyncapi.yaml
+          "@asyncapi/html-template@${ASYNCAPI_HTML_VERSAO}"
+          -o ../contrato-html --force-write -p singleFile=true
+
+      - name: Publicar HTML como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: contrato-html
+          path: contrato-html/index.html

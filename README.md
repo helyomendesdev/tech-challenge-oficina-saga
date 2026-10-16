@@ -11,7 +11,8 @@ Contrato de mensagens, documentação e testes ponta a ponta da **Saga orquestra
 | [`contrato/asyncapi.yaml`](contrato/asyncapi.yaml) | Contrato AsyncAPI 3.0: filas, comandos, respostas, DLQs |
 | [`contrato/schemas/`](contrato/schemas) | JSON Schema (draft-07): `envelope`, `comum`, um schema por mensagem em `comandos/` e `respostas/` |
 | [`contrato/exemplos/`](contrato/exemplos) | Um exemplo válido por mensagem; `invalidos/` tem exemplos que **devem** ser rejeitados |
-| [`scripts/validar_contrato.py`](scripts/validar_contrato.py) | Valida exemplos contra schemas e a coerência de nomes com o AsyncAPI |
+| [`contrato/saga-estados.yaml`](contrato/saga-estados.yaml) | Tabela de transições do orquestrador (estados, gatilhos, comandos enviados); conferida pelo validador |
+| [`scripts/validar_contrato.py`](scripts/validar_contrato.py) | Valida exemplos contra schemas e a coerência de nomes com o AsyncAPI; também confere a máquina de estados com o diagrama de `docs/fluxo-saga.md` e as trilhas de exemplo |
 | [`docs/adr-001-saga-orquestrada.md`](docs/adr-001-saga-orquestrada.md) | Por que orquestrada, e por que o orquestrador mora no OS Service |
 | [`docs/fluxo-saga.md`](docs/fluxo-saga.md) | Diagramas: fluxo feliz, compensação, máquina de estados, mapa para o status da OS |
 | [`tracing/propagacao-sqs.md`](tracing/propagacao-sqs.md) | `traceparent`/`tracestate` em MessageAttributes do SQS; `requestId` no envelope |

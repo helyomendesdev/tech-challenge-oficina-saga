@@ -2,13 +2,13 @@
   "messageId": "c1182c7e-39a3-5a58-b225-fd2ef76a92ba",
   "type": "OrcamentoRecusado",
   "version": 1,
-  "sagaId": "0b9e7d3c-5a2f-4e8b-8c1d-7f6a5e4d3c22",
-  "osId": 102,
-  "causationId": "50a92ff0-40d7-538e-8fe9-387a01e04f3b",
-  "requestId": "req-comp-b4d8f2",
+  "sagaId": "61c0625a-2da0-52bf-9dc8-378e2abb5c09",
+  "osId": 105,
+  "causationId": "de9c977c-69e0-5bf4-a792-ea46fc03f8c3",
+  "requestId": "req-recusa-3d1749",
   "occurredAt": "2026-10-07T16:00:00Z",
   "payload": {
-    "orcamentoId": "c5e7a9b1-3d4f-4a6c-9d2f-4a6c8e0a2b44",
+    "orcamentoId": "cee829b3-06a6-56e8-bcfa-7d6e353dcc8f",
     "recusadoEm": "2026-10-07T15:59:40Z",
     "motivo": "Valor acima do esperado."
   }
