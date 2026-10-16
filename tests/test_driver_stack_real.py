@@ -17,6 +17,7 @@ import pytest
 import yaml
 from jsonschema import Draft7Validator
 
+from e2e.driver import cenario_do_titulo
 from e2e.driver_stack_real import DriverStackReal
 
 CONTRATO = Path(__file__).resolve().parent.parent / "contrato"
@@ -364,6 +365,26 @@ def test_os_que_nunca_fica_pronto_falha_com_mensagem_de_prontidao(stack, monkeyp
     with pytest.raises(AssertionError, match=r"nao ficou pronto.*/health/ready/.*status 503"):
         motor.iniciar_saga(cliente_id=1, veiculo_id=1, servicos=[], pecas=[])
     assert stack.aberturas == []
+
+
+def test_titulo_fora_do_mapa_na_stack_real_e_erro_citando_o_titulo():
+    mapa = {"Fluxo feliz": "feliz"}
+    with pytest.raises(LookupError, match="Cenario inventado"):
+        cenario_do_titulo("Cenario inventado", mapa, "stack-real")
+
+
+def test_titulo_do_mapa_na_stack_real_devolve_o_cenario():
+    assert cenario_do_titulo("Fluxo feliz", {"Fluxo feliz": "feliz"}, "stack-real") == "feliz"
+
+
+def test_titulo_fora_do_mapa_na_referencia_nao_e_erro():
+    assert cenario_do_titulo("Qualquer", {}, "referencia") is None
+    assert cenario_do_titulo("Qualquer", {}, "") is None
+
+
+def test_stack_real_recusa_cenario_nulo(driver):
+    with pytest.raises(ValueError, match="explicito"):
+        driver.usar_cenario(None)
 
 
 def test_conexao_recusada_da_mensagem_clara(monkeypatch):

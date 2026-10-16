@@ -58,7 +58,7 @@ class DriverStackReal:
 
     def usar_cenario(self, nome):
         if nome is None:
-            nome = "feliz"
+            raise ValueError("a stack real exige o cenario explicito; o titulo do cenario nao esta no mapa")
         if nome not in DADOS_DO_CENARIO:
             raise ValueError(f"cenario {nome!r} desconhecido; aceitos: {', '.join(DADOS_DO_CENARIO)}")
         self._cenario = nome

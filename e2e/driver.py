@@ -78,3 +78,22 @@ def criar_driver(nome: str | None = None) -> DriverSaga:
     raise ValueError(
         f"SAGA_E2E_DRIVER={nome!r} desconhecido; motores aceitos: {', '.join(MOTORES)}"
     )
+
+
+def cenario_do_titulo(titulo: str, mapa: dict[str, str], nome_do_motor: str | None = None) -> str | None:
+    """Cenario que o motor entende para o titulo do cenario do .feature.
+
+    Na stack real um titulo fora de `mapa` e erro: o motor nao pode adivinhar
+    os dados que provocam a falha, e cair em `feliz` em silencio esconderia o
+    cenario errado. Nos demais motores o cenario nao importa e devolve None.
+    """
+    if nome_do_motor is None:
+        nome_do_motor = os.environ.get("SAGA_E2E_DRIVER", "")
+    if nome_do_motor.strip() != "stack-real":
+        return mapa.get(titulo)
+    if titulo not in mapa:
+        raise LookupError(
+            f"o cenario {titulo!r} esta marcado @stack-real mas nao tem entrada no mapa de cenarios "
+            f"da stack real (e2e/conftest.py CENARIOS); entradas: {', '.join(map(repr, mapa))}"
+        )
+    return mapa[titulo]

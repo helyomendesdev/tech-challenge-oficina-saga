@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from e2e.driver import criar_driver  # noqa: E402  (depende do sys.path acima)
+from e2e.driver import cenario_do_titulo, criar_driver  # noqa: E402  (depende do sys.path acima)
 
 PASTA_E2E = pathlib.Path(__file__).resolve().parent
 
@@ -45,7 +45,7 @@ def _nome_do_cenario(request):
 @pytest.fixture
 def driver(request):
     motor = criar_driver()
-    motor.usar_cenario(CENARIOS.get(_nome_do_cenario(request)))
+    motor.usar_cenario(cenario_do_titulo(_nome_do_cenario(request), CENARIOS))
     return motor
 
 
