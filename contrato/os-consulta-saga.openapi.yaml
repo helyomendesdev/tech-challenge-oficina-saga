@@ -7,6 +7,12 @@ info:
     Servico. O BDD contra a stack real acompanha o fluxo por ela. Os enums de
     estado, statusOs e type espelham contrato/saga-estados.yaml e
     contrato/schemas/envelope.schema.json.
+servers:
+  - url: http://localhost:8001
+    description: OS Service local (python manage.py runserver 8001, como no README do -os)
+  - url: http://os:8000
+    description: OS Service dentro do stack/docker-compose.yml
+
 paths:
   /api/v1/ordens-servico/{id}/saga:
     get:
