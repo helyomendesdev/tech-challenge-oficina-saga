@@ -101,6 +101,7 @@ stateDiagram-v2
     AGUARDANDO_APROVACAO --> PAGAMENTO_SOLICITADO: OrcamentoAprovado, envia SolicitarPagamento
     AGUARDANDO_APROVACAO --> CANCELADA: OrcamentoRecusado (em aberto)
     PAGAMENTO_SOLICITADO --> EXECUCAO_SOLICITADA: PagamentoConfirmado, envia IniciarExecucao
+    AGUARDANDO_APROVACAO --> COMPENSANDO: timeout, envia CancelarOrcamento
     PAGAMENTO_SOLICITADO --> COMPENSANDO: PagamentoFalhou, envia CancelarOrcamento
     EXECUCAO_SOLICITADA --> EM_EXECUCAO: ExecucaoIniciada
     EXECUCAO_SOLICITADA --> COMPENSANDO: ExecucaoFalhou, envia EstornarPagamento
@@ -120,7 +121,7 @@ Regras do orquestrador:
 - `OrcamentoFalhou` não precisa de compensação: nenhum orçamento foi criado.
 - `PagamentoFalhou` só desfaz o orçamento (`CancelarOrcamento`, motivo `PAGAMENTO_FALHOU`): nenhum pagamento foi confirmado, então não há estorno.
 - A compensação segue a ordem inversa da ida: execução (`CancelarExecucao`), pagamento (`EstornarPagamento`), orçamento (`CancelarOrcamento`). Cada passo só sai depois da confirmação do anterior (`ExecucaoCancelada`, `PagamentoEstornado`).
-- Em `COMPENSANDO`, o comando enviado ao entrar no estado (`CancelarOrcamento`, `EstornarPagamento` ou `CancelarExecucao`, conforme a transição) leva o motivo da própria transição (`PAGAMENTO_FALHOU`, `EXECUCAO_FALHOU` ou `CANCELADO_PELO_CLIENTE`). Os comandos dos auto-laços (`EstornarPagamento` após `ExecucaoCancelada`, `CancelarOrcamento` após `PagamentoEstornado`) repetem o motivo com que a compensação foi aberta (`motivo: herdado` na tabela `contrato/saga-estados.yaml`): o orquestrador guarda esse motivo na Saga. O validador exige `herdado` ali porque `COMPENSANDO` é entrado com mais de um motivo.
+- Em `COMPENSANDO`, o comando enviado ao entrar no estado (`CancelarOrcamento`, `EstornarPagamento` ou `CancelarExecucao`, conforme a transição) leva o motivo da própria transição (`PAGAMENTO_FALHOU`, `TIMEOUT`, `EXECUCAO_FALHOU` ou `CANCELADO_PELO_CLIENTE`). Os comandos dos auto-laços (`EstornarPagamento` após `ExecucaoCancelada`, `CancelarOrcamento` após `PagamentoEstornado`) repetem o motivo com que a compensação foi aberta (`motivo: herdado` na tabela `contrato/saga-estados.yaml`): o orquestrador guarda esse motivo na Saga. O validador exige `herdado` ali porque `COMPENSANDO` é entrado com mais de um motivo.
 
 ## Correspondência com o status da OS no monólito
 

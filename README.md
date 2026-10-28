@@ -21,6 +21,7 @@ Contrato de mensagens, documentação e testes ponta a ponta da **Saga orquestra
 | [`scripts/validar_contrato.py`](scripts/validar_contrato.py) | Valida exemplos contra schemas e a coerência de nomes com o AsyncAPI; também confere a máquina de estados com o diagrama de `docs/fluxo-saga.md` e as trilhas de exemplo |
 | [`docs/adr-001-saga-orquestrada.md`](docs/adr-001-saga-orquestrada.md) | Por que orquestrada, e por que o orquestrador mora no OS Service |
 | [`docs/adr-002-pagamento-antes-da-execucao.md`](docs/adr-002-pagamento-antes-da-execucao.md) | Por que o pagamento é passo próprio da Saga, antes da execução, com estorno separado |
+| [`docs/adr-003-timeout-de-aprovacao.md`](docs/adr-003-timeout-de-aprovacao.md) | Quem dispara o timeout de aprovação, o prazo e a compensação |
 | [`docs/fluxo-saga.md`](docs/fluxo-saga.md) | Diagramas: fluxo feliz, compensação, máquina de estados, mapa para o status da OS |
 | [`tracing/propagacao-sqs.md`](tracing/propagacao-sqs.md) | `traceparent`/`tracestate` em MessageAttributes do SQS; `requestId` no envelope |
 | [`tracing/newrelic-agente.md`](tracing/newrelic-agente.md) | API de distributed tracing do agente Python do New Relic (9.13.0): funções, `transport_type`, headers emitidos |

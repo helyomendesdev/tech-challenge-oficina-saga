@@ -2,7 +2,7 @@
 
 Cada questão traz a recomendação atual. Fechada a questão, a decisão vai para um ADR e sai daqui.
 
-Já fechadas: filas FIFO (ADR-001, 2026-10-07); onde entra o pagamento do Mercado Pago ([ADR-002](adr-002-pagamento-antes-da-execucao.md): passo próprio antes da execução, com estorno separado).
+Já fechadas: filas FIFO (ADR-001, 2026-10-07); onde entra o pagamento do Mercado Pago ([ADR-002](adr-002-pagamento-antes-da-execucao.md): passo próprio antes da execução, com estorno separado); timeout de aprovação ([ADR-003](adr-003-timeout-de-aprovacao.md): OS Service dispara, prazo configurável, padrão 30 min).
 
 ## 1. Como o link de pagamento do Mercado Pago chega ao cliente
 
@@ -40,20 +40,16 @@ A v1 usa **inteiro** porque a OS do monólito usa `BigAutoField` (`app/settings.
 
 O ADR-007 do monólito criou o `X-Correlation-Id` para ligar o fluxo de autenticação ao de aplicação. A v1 leva só o `requestId`. Recomendação: **não incluir** por ora — o `requestId` já liga a Saga à requisição de origem, e o correlation id continua consultável no log dessa requisição.
 
-## 6. Timeout de aprovação
+## 6. Escopo do `causationId` nulo
 
-Orçamento sem resposta do cliente fica em `AGUARDANDO_APROVACAO` para sempre. `CancelarOrcamento` já aceita o motivo `TIMEOUT`; falta decidir o prazo (sugestão: `validoAte` do `OrcamentoGerado`) e quem dispara (agendamento no OS Service).
-
-## 7. Escopo do `causationId` nulo
-
-Hoje todo comando aceita `causationId` nulo, para cobrir o gatilho externo: abrir a Saga (`GerarOrcamento`), o cliente cancelar (`CancelarExecucao`) e, se entrar, o timeout (`CancelarOrcamento`). Só que `IniciarExecucao` com causa nula também passa no schema, embora sempre seja reação a `PagamentoConfirmado`; `SolicitarPagamento` (reação a `OrcamentoAprovado`) e `EstornarPagamento` (reação a `ExecucaoFalhou`, `ExecucaoCancelada` ou ao cancelamento do cliente) seguem a mesma regra. Quem pega isso hoje é só o validador de exemplos.
+Hoje todo comando aceita `causationId` nulo, para cobrir o gatilho externo: abrir a Saga (`GerarOrcamento`), o cliente cancelar (`CancelarExecucao`) e o timeout (`CancelarOrcamento`, ADR-003). Só que `IniciarExecucao` com causa nula também passa no schema, embora sempre seja reação a `PagamentoConfirmado`; `SolicitarPagamento` (reação a `OrcamentoAprovado`) e `EstornarPagamento` (reação a `ExecucaoFalhou`, `ExecucaoCancelada` ou ao cancelamento do cliente) seguem a mesma regra. Quem pega isso hoje é só o validador de exemplos.
 
 - **A. Manter em todo comando.** Um schema só; o consumidor trata causa nula em qualquer comando.
-- **B. Só nos comandos com gatilho externo** (`GerarOrcamento`, `CancelarExecucao`, e `CancelarOrcamento` se o timeout entrar). Os demais exigem causa não nula no schema.
+- **B. Só nos comandos com gatilho externo** (`GerarOrcamento`, `CancelarExecucao` e `CancelarOrcamento`). Os demais exigem causa não nula no schema.
 
-**Recomendação: B**, quando o timeout for decidido (item 6). Sem isso, `IniciarExecucao` com causa nula continua válido e só o validador de exemplos percebe. Consequência: consumidores passam a poder confiar em causa não nula onde ela sempre existe.
+**Recomendação: B.** O timeout já está decidido (ADR-003). Sem isso, `IniciarExecucao` com causa nula continua válido e só o validador de exemplos percebe. Consequência: consumidores passam a poder confiar em causa não nula onde ela sempre existe.
 
-## 8. Qual `requestId` leva o comando de cancelamento
+## 7. Qual `requestId` leva o comando de cancelamento
 
 O envelope diz que o `requestId` é o da requisição de origem, repassado inalterado por toda a Saga. O cancelamento pelo cliente é outra requisição HTTP, com identificador próprio. Pergunta: o `CancelarExecucao` leva o `requestId` da Saga ou o da requisição de cancelamento?
 

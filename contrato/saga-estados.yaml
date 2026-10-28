@@ -52,6 +52,7 @@ status_os:
 gatilhos_externos:
   inicio: Requisicao HTTP que conclui o diagnostico e abre a Saga.
   cancelamento: Cliente pede cancelamento da OS com a execucao em andamento.
+  timeout: Agendamento no OS Service acha orcamento sem resposta alem do prazo (ADR-003).
 
 transicoes:
   - de: INICIADA
@@ -88,6 +89,13 @@ transicoes:
     recebe: OrcamentoRecusado
     para: CANCELADA
     nota: Em aberto (questoes-abertas, item 2) — no monolito a recusa volta ao diagnostico.
+
+  - de: AGUARDANDO_APROVACAO
+    recebe: timeout
+    para: COMPENSANDO
+    envia: CancelarOrcamento
+    motivo: TIMEOUT
+    nota: Prazo e disparo no ADR-003. Nada foi pago ainda, entao so o orcamento e desfeito.
 
   - de: EXECUCAO_SOLICITADA
     recebe: ExecucaoIniciada
@@ -177,3 +185,10 @@ trilhas:
     comeca_em: AGUARDANDO_APROVACAO
     mensagens: [OrcamentoRecusado]
     termina_em: CANCELADA
+
+  timeout:
+    comeca_em: AGUARDANDO_APROVACAO
+    gatilho: timeout
+    mensagens: []
+    termina_em: COMPENSANDO
+    pendente: {comando: CancelarOrcamento, motivo: TIMEOUT}
