@@ -1,0 +1,60 @@
+name: contrato
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    env:
+      ASYNCAPI_CLI_VERSAO: "3.6.0"
+      # html-template 2.x: a linha compativel com o gerador 1.x embutido no CLI 3.x (a 3.x pede gerador >= 2)
+      ASYNCAPI_HTML_VERSAO: "2.3.14"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: AsyncAPI valido (sintaxe 3.0 e $ref dos schemas)
+        run: npx -y "@asyncapi/cli@${ASYNCAPI_CLI_VERSAO}" validate contrato/asyncapi.yaml
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Exemplos contra schemas e coerencia com o AsyncAPI
+        run: python scripts/validar_contrato.py
+
+      - name: Testes do pacote e BDD com o motor de referencia
+        run: pytest -q tests e2e
+
+      - name: BDD sem step sem definicao
+        run: |
+          saida=$(pytest --generate-missing --feature e2e/features e2e/test_fluxo_os.py)
+          if echo "$saida" | grep -q '^def '; then
+            echo "$saida"
+            echo "::error::ha steps no .feature sem definicao em e2e/test_fluxo_os.py"
+            exit 1
+          fi
+
+      - name: Documentacao HTML do contrato
+        # roda dentro de contrato/: o gerador resolve os $ref a partir do diretorio corrente
+        working-directory: contrato
+        run: >
+          npx -y "@asyncapi/cli@${ASYNCAPI_CLI_VERSAO}" generate fromTemplate asyncapi.yaml
+          "@asyncapi/html-template@${ASYNCAPI_HTML_VERSAO}"
+          -o ../contrato-html --force-write -p singleFile=true
+
+      - name: Publicar HTML como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: contrato-html
+          path: contrato-html/index.html

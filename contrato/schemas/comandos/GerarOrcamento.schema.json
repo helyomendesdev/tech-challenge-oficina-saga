@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/comandos/GerarOrcamento.schema.json",
+  "title": "GerarOrcamento",
+  "description": "OS Service -> Billing: gerar o orcamento da OS a partir do diagnostico.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "GerarOrcamento"
+    },
+    "version": {
+      "const": 1
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "clienteId",
+        "veiculoId",
+        "servicos",
+        "pecas"
+      ],
+      "properties": {
+        "clienteId": {
+          "$ref": "../comum.schema.json#/definitions/idNumerico"
+        },
+        "veiculoId": {
+          "$ref": "../comum.schema.json#/definitions/idNumerico"
+        },
+        "servicos": {
+          "$ref": "../comum.schema.json#/definitions/itensServico"
+        },
+        "pecas": {
+          "$ref": "../comum.schema.json#/definitions/itensPeca"
+        }
+      }
+    }
+  }
+}

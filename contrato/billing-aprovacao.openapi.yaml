@@ -1,0 +1,116 @@
+openapi: 3.0.3
+info:
+  title: Billing - aprovacao do orcamento
+  version: "1.0.0"
+  description: >-
+    Rota em que o cliente aprova um orcamento gerado pelo Billing. Aprovar faz o
+    Billing publicar OrcamentoAprovado na fila de respostas da Saga
+    (contrato/asyncapi.yaml); o BDD contra a stack real usa esta rota para o
+    passo "o cliente aprova o orcamento". Os formatos de uuid e data-hora
+    espelham contrato/schemas/comum.schema.json.
+servers:
+  - url: http://localhost:8001
+    description: Billing no stack/docker-compose.yml, porta publicada no host
+  - url: http://billing:8000
+    description: Billing dentro da rede do stack/docker-compose.yml
+
+paths:
+  /api/v1/orcamentos/{id}/aprovar:
+    post:
+      operationId: aprovarOrcamento
+      summary: Aprova o orcamento e dispara OrcamentoAprovado
+      description: >-
+        Aceita a aprovacao e responde 202: o Billing publica OrcamentoAprovado
+        de forma assincrona, e a Saga avanca quando o orquestrador o consome.
+        Autorizacao: so o cliente dono da OS do orcamento (sub do JWT igual ao
+        clienteId da OS) ou um usuario com papel de atendente pode aprovar.
+      tags: [orcamento]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: orcamentoId, o mesmo valor do payload de OrcamentoGerado.
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "202":
+          description: Aprovacao aceita; OrcamentoAprovado sera publicado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AprovacaoAceita"
+        "401":
+          description: Token JWT ausente, invalido ou expirado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "403":
+          description: O JWT e valido, mas o chamador nao e o cliente dono da OS deste orcamento nem tem o papel de atendente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "404":
+          description: Orcamento inexistente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+        "409":
+          description: Orcamento que nao esta aguardando aprovacao (ja aprovado, recusado, cancelado ou expirado).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Erro"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    DataHora:
+      type: string
+      format: date-time
+      pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    Erro:
+      type: object
+      required: [codigo, mensagem]
+      properties:
+        codigo:
+          type: string
+          description: Codigo de erro em MAIUSCULAS.
+          pattern: "^[A-Z][A-Z0-9_]*$"
+          example: ORCAMENTO_NAO_AGUARDA_APROVACAO
+        mensagem:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Texto legivel do erro.
+          example: O orcamento nao esta aguardando aprovacao.
+    AprovacaoAceita:
+      type: object
+      required: [orcamentoId, osId, sagaId, aprovadoEm]
+      properties:
+        orcamentoId:
+          $ref: "#/components/schemas/Uuid"
+        osId:
+          type: integer
+          minimum: 1
+          description: Id da Ordem de Servico (mesmo valor do osId das mensagens).
+        sagaId:
+          $ref: "#/components/schemas/Uuid"
+        aprovadoEm:
+          $ref: "#/components/schemas/DataHora"
+      example:
+        orcamentoId: 93f0be09-1d79-5c92-a371-0cd69b36a8de
+        osId: 101
+        sagaId: 291be3b9-8b0d-583e-94c1-f9d2ae911fb3
+        aprovadoEm: "2026-10-07T13:05:00Z"

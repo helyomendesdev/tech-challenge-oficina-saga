@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/respostas/ExecucaoCancelada.schema.json",
+  "title": "ExecucaoCancelada",
+  "description": "Execucao -> OS Service: confirmacao da compensacao CancelarExecucao.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "ExecucaoCancelada"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execucaoId"
+      ],
+      "properties": {
+        "execucaoId": {
+          "$ref": "../comum.schema.json#/definitions/uuid"
+        }
+      }
+    }
+  }
+}

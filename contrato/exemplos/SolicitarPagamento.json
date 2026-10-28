@@ -1,0 +1,14 @@
+{
+  "messageId": "49624f06-019e-5f4a-af9b-be2f45b04c11",
+  "type": "SolicitarPagamento",
+  "version": 1,
+  "sagaId": "291be3b9-8b0d-583e-94c1-f9d2ae911fb3",
+  "osId": 101,
+  "causationId": "fc1c3215-d9e8-5a4d-a83e-0143d3f1774c",
+  "requestId": "req-feliz-947a90",
+  "occurredAt": "2026-10-07T15:20:01Z",
+  "payload": {
+    "orcamentoId": "93f0be09-1d79-5c92-a371-0cd69b36a8de",
+    "valorTotalCentavos": 45990
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "messageId": "c31d9e16-aed6-5aa5-b40e-6e1504cd5fb6",
+  "type": "ExecucaoFalhou",
+  "version": 1,
+  "sagaId": "3cc31d44-e737-5d3a-b47e-9bf8ca9409a9",
+  "osId": 102,
+  "causationId": "de3e755d-dca6-573f-94ac-21a5f2471a34",
+  "requestId": "req-falha-execucao-9877f3",
+  "occurredAt": "2026-10-07T16:10:00Z",
+  "payload": {
+    "orcamentoId": "7db89e3e-610e-595d-99ad-4c6db858aea6",
+    "execucaoId": null,
+    "erro": {
+      "codigo": "PECA_SEM_ESTOQUE",
+      "mensagem": "Peca 40 sem saldo para reserva."
+    }
+  }
+}

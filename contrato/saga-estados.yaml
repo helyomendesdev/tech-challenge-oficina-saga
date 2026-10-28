@@ -1,0 +1,194 @@
+# Maquina de estados do orquestrador da Saga (OS Service) — v1.
+#
+# Fonte unica das transicoes: o diagrama de docs/fluxo-saga.md e os exemplos
+# de contrato/exemplos/ sao conferidos contra este arquivo por
+# scripts/validar_contrato.py. O orquestrador pode carregar esta tabela
+# direto, em vez de reescrever as transicoes no codigo.
+#
+# Cada transicao: estado `de` + `recebe` (resposta da fila, ou gatilho
+# externo `inicio`/`cancelamento`) -> estado `para`, e o comando que o
+# orquestrador `envia` na mesma transacao (outbox), se houver.
+#
+# Resposta que nao casa com nenhuma transicao do estado atual nao muda o
+# estado: o orquestrador registra e descarta.
+#
+# `motivo: herdado` (transicao): o comando sai com o mesmo motivo do ultimo
+# comando enviado na trilha, que e o motivo de quem abriu a compensacao. O
+# orquestrador guarda esse motivo na Saga e o repete aqui; o validador confere
+# que ha um motivo anterior para herdar.
+#
+# `pendente:` (trilha): o comando que a trilha termina devendo e o motivo dele.
+# Declara o passo final, que nenhum exemplo da trilha cobre. O validador confere
+# que a trilha declara exatamente o comando e o motivo que a maquina manda.
+
+versao: 1
+inicial: INICIADA
+finais: [CONCLUIDA, CANCELADA]
+
+estados:
+  INICIADA: Saga criada para a OS com diagnostico concluido.
+  ORCAMENTO_SOLICITADO: GerarOrcamento enviado; aguarda o Billing.
+  AGUARDANDO_APROVACAO: Orcamento gerado; aguarda o cliente.
+  PAGAMENTO_SOLICITADO: Orcamento aprovado; SolicitarPagamento enviado, aguarda o Mercado Pago via Billing.
+  EXECUCAO_SOLICITADA: Pagamento confirmado; IniciarExecucao enviado.
+  EM_EXECUCAO: Execucao em andamento.
+  COMPENSANDO: Desfazendo passos ja feitos, na ordem inversa (execucao, pagamento, orcamento).
+  CONCLUIDA: Execucao finalizada. Fim feliz.
+  CANCELADA: Saga encerrada sem execucao concluida.
+
+# Status da OS no monolito que cada estado da Saga espelha. Conferido pelo
+# validador contra a tabela de docs/fluxo-saga.md.
+status_os:
+  INICIADA: AGUARDANDO
+  ORCAMENTO_SOLICITADO: AGUARDANDO
+  AGUARDANDO_APROVACAO: AGUARDANDO
+  PAGAMENTO_SOLICITADO: AGUARDANDO
+  EXECUCAO_SOLICITADA: EXECUCAO
+  EM_EXECUCAO: EXECUCAO
+  CONCLUIDA: FINALIZADA
+  COMPENSANDO: CANCELADA
+  CANCELADA: CANCELADA
+
+gatilhos_externos:
+  inicio: Requisicao HTTP que conclui o diagnostico e abre a Saga.
+  cancelamento: Cliente pede cancelamento da OS com a execucao em andamento.
+  timeout: Agendamento no OS Service acha orcamento sem resposta alem do prazo (ADR-003).
+
+transicoes:
+  - de: INICIADA
+    recebe: inicio
+    para: ORCAMENTO_SOLICITADO
+    envia: GerarOrcamento
+
+  - de: ORCAMENTO_SOLICITADO
+    recebe: OrcamentoGerado
+    para: AGUARDANDO_APROVACAO
+
+  - de: ORCAMENTO_SOLICITADO
+    recebe: OrcamentoFalhou
+    para: CANCELADA
+
+  - de: AGUARDANDO_APROVACAO
+    recebe: OrcamentoAprovado
+    para: PAGAMENTO_SOLICITADO
+    envia: SolicitarPagamento
+
+  - de: PAGAMENTO_SOLICITADO
+    recebe: PagamentoConfirmado
+    para: EXECUCAO_SOLICITADA
+    envia: IniciarExecucao
+
+  - de: PAGAMENTO_SOLICITADO
+    recebe: PagamentoFalhou
+    para: COMPENSANDO
+    envia: CancelarOrcamento
+    motivo: PAGAMENTO_FALHOU
+    nota: Nenhum pagamento foi confirmado, entao nao ha estorno; so o orcamento e desfeito.
+
+  - de: AGUARDANDO_APROVACAO
+    recebe: OrcamentoRecusado
+    para: CANCELADA
+    nota: Em aberto (questoes-abertas, item 2) — no monolito a recusa volta ao diagnostico.
+
+  - de: AGUARDANDO_APROVACAO
+    recebe: timeout
+    para: COMPENSANDO
+    envia: CancelarOrcamento
+    motivo: TIMEOUT
+    nota: Prazo e disparo no ADR-003. Nada foi pago ainda, entao so o orcamento e desfeito.
+
+  - de: EXECUCAO_SOLICITADA
+    recebe: ExecucaoIniciada
+    para: EM_EXECUCAO
+
+  - de: EXECUCAO_SOLICITADA
+    recebe: ExecucaoFalhou
+    para: COMPENSANDO
+    envia: EstornarPagamento
+    motivo: EXECUCAO_FALHOU
+
+  - de: EM_EXECUCAO
+    recebe: ExecucaoFinalizada
+    para: CONCLUIDA
+
+  - de: EM_EXECUCAO
+    recebe: ExecucaoFalhou
+    para: COMPENSANDO
+    envia: CancelarExecucao
+    motivo: EXECUCAO_FALHOU
+    nota: A Execucao responde ExecucaoCancelada mesmo ja tendo falhado (libera pecas reservadas).
+
+  - de: EM_EXECUCAO
+    recebe: cancelamento
+    para: COMPENSANDO
+    envia: CancelarExecucao
+    motivo: CANCELADO_PELO_CLIENTE
+
+  - de: COMPENSANDO
+    recebe: ExecucaoCancelada
+    para: COMPENSANDO
+    envia: EstornarPagamento
+    motivo: herdado
+    nota: O orquestrador guarda na Saga o motivo de quem abriu a compensacao e o repete aqui.
+
+  - de: COMPENSANDO
+    recebe: PagamentoEstornado
+    para: COMPENSANDO
+    envia: CancelarOrcamento
+    motivo: herdado
+
+  - de: COMPENSANDO
+    recebe: OrcamentoCancelado
+    para: CANCELADA
+
+# Trilhas: sequencias de exemplos (contrato/exemplos/<tipo>.json) que o
+# validador percorre na maquina. Confere que cada mensagem e aceita no estado
+# corrente, que o comando enviado e o proximo da trilha, que causationId
+# aponta para a mensagem anterior e que sagaId/osId/requestId nao mudam.
+trilhas:
+  feliz:
+    comeca_em: INICIADA
+    gatilho: inicio
+    mensagens: [GerarOrcamento, OrcamentoGerado, OrcamentoAprovado, SolicitarPagamento, PagamentoConfirmado, IniciarExecucao, ExecucaoIniciada, ExecucaoFinalizada]
+    termina_em: CONCLUIDA
+
+  falha-execucao:
+    comeca_em: EXECUCAO_SOLICITADA
+    mensagens: [ExecucaoFalhou, EstornarPagamento, PagamentoEstornado, CancelarOrcamento, OrcamentoCancelado]
+    termina_em: CANCELADA
+
+  cancelamento:
+    comeca_em: EM_EXECUCAO
+    gatilho: cancelamento
+    mensagens: [CancelarExecucao, ExecucaoCancelada]
+    termina_em: COMPENSANDO
+    pendente: {comando: EstornarPagamento, motivo: CANCELADO_PELO_CLIENTE}
+
+  falha-em-execucao:
+    comeca_em: EM_EXECUCAO
+    mensagens: [ExecucaoFalhou]
+    termina_em: COMPENSANDO
+    pendente: {comando: CancelarExecucao, motivo: EXECUCAO_FALHOU}
+
+  falha-pagamento:
+    comeca_em: PAGAMENTO_SOLICITADO
+    mensagens: [PagamentoFalhou]
+    termina_em: COMPENSANDO
+    pendente: {comando: CancelarOrcamento, motivo: PAGAMENTO_FALHOU}
+
+  falha-orcamento:
+    comeca_em: ORCAMENTO_SOLICITADO
+    mensagens: [OrcamentoFalhou]
+    termina_em: CANCELADA
+
+  recusa:
+    comeca_em: AGUARDANDO_APROVACAO
+    mensagens: [OrcamentoRecusado]
+    termina_em: CANCELADA
+
+  timeout:
+    comeca_em: AGUARDANDO_APROVACAO
+    gatilho: timeout
+    mensagens: []
+    termina_em: COMPENSANDO
+    pendente: {comando: CancelarOrcamento, motivo: TIMEOUT}

@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://oficina-saga.fiap/contrato/schemas/respostas/PagamentoFalhou.schema.json",
+  "title": "PagamentoFalhou",
+  "description": "Billing -> OS Service: o pagamento nao foi concluido; dispara compensacao.",
+  "allOf": [
+    {
+      "$ref": "../envelope.schema.json"
+    }
+  ],
+  "properties": {
+    "type": {
+      "const": "PagamentoFalhou"
+    },
+    "version": {
+      "const": 1
+    },
+    "causationId": {
+      "$ref": "../comum.schema.json#/definitions/uuid"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "motivo"
+      ],
+      "properties": {
+        "motivo": {
+          "type": "string",
+          "enum": [
+            "RECUSADO",
+            "EXPIRADO",
+            "ERRO_PROVEDOR"
+          ]
+        },
+        "detalhe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    }
+  }
+}

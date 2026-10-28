@@ -1,0 +1,14 @@
+{
+  "messageId": "f0ca7bc7-6abd-51cf-8390-acd84eb13fcf",
+  "type": "EstornarPagamento",
+  "version": 1,
+  "sagaId": "3cc31d44-e737-5d3a-b47e-9bf8ca9409a9",
+  "osId": 102,
+  "causationId": "c31d9e16-aed6-5aa5-b40e-6e1504cd5fb6",
+  "requestId": "req-falha-execucao-9877f3",
+  "occurredAt": "2026-10-07T16:10:01Z",
+  "payload": {
+    "pagamentoId": "49054a2a-bb1e-553d-99a3-3fa3fe1b4460",
+    "motivo": "EXECUCAO_FALHOU"
+  }
+}

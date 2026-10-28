@@ -1,0 +1,78 @@
+{
+  "name": "Saga da Oficina - monitoramento e rastreamento",
+  "description": "Mensagens da Saga, compensacoes, traces distribuidos e DLQs.",
+  "permissions": "PUBLIC_READ_WRITE",
+  "pages": [
+    {
+      "name": "Saga",
+      "description": "Fluxo distribuido OS, Billing e Execucao",
+      "widgets": [
+        {
+          "title": "Mensagens da Saga por messageType",
+          "layout": { "column": 1, "row": 1, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) FROM Transaction WHERE messageType IS NOT NULL FACET messageType TIMESERIES SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Uma Saga por sagaId (trocar o valor)",
+          "layout": { "column": 7, "row": 1, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT timestamp, appName, messageType, messageId, causationId, osId, requestId FROM Transaction WHERE sagaId = '<sagaId>' ORDER BY timestamp LIMIT 100 SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Compensacoes",
+          "layout": { "column": 1, "row": 4, "width": 4, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT count(*) FROM Transaction WHERE messageType IN ('EstornarPagamento', 'CancelarOrcamento', 'CancelarExecucao') FACET messageType SINCE 1 day ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Spans dos servicos (distributed tracing)",
+          "layout": { "column": 5, "row": 4, "width": 8, "height": 3 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT trace.id, appName, name, duration FROM Span WHERE trace.id IS NOT NULL ORDER BY timestamp DESC LIMIT 50 SINCE 1 hour ago"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Mensagens nas DLQs",
+          "layout": { "column": 1, "row": 7, "width": 12, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountIds": [0],
+                "query": "SELECT latest(aws.sqs.ApproximateNumberOfMessagesVisible) FROM Metric WHERE aws.sqs.QueueName IN ('oficina-billing-comandos-dlq.fifo', 'oficina-execucao-comandos-dlq.fifo', 'oficina-os-saga-respostas-dlq.fifo') FACET aws.sqs.QueueName TIMESERIES SINCE 6 hours ago"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
