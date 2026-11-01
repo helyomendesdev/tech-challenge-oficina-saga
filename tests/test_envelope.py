@@ -83,3 +83,25 @@ def test_montar_funciona_sem_jsonschema_nem_referencing(monkeypatch):
         monkeypatch.undo()
         sys.modules["oficina_saga.envelope"] = antigo
         oficina_saga.envelope = antigo
+
+
+@pytest.mark.parametrize(
+    "nome, tirar",
+    [
+        ("IniciarExecucao", lambda p: [i.pop("itemPecaOSId") for i in p["pecas"]]),
+        ("ExecucaoFinalizada", lambda p: p.pop("pecasConsumidas")),
+    ],
+)
+def test_v1_1_aceita_mensagem_no_formato_v1_0(nome, tirar):
+    """ADR-004: os campos da v1.1 sao opcionais; produtor que ainda manda o formato v1.0 segue valido."""
+    exemplo = _carregar(EXEMPLOS / f"{nome}.json")
+    tirar(exemplo["payload"])
+    envelope.validar(exemplo)
+
+
+def test_v1_1_recusa_campo_desconhecido_no_item_consumido():
+    """payload segue com additionalProperties false: consumidor v1.0 recusa os campos novos (ordem de adocao no ADR-004)."""
+    exemplo = _carregar(EXEMPLOS / "ExecucaoFinalizada.json")
+    exemplo["payload"]["pecasConsumidas"][0]["lote"] = "x"
+    with pytest.raises(ValidationError):
+        envelope.validar(exemplo)

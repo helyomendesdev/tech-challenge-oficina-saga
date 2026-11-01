@@ -31,6 +31,9 @@
         },
         "finalizadaEm": {
           "$ref": "../comum.schema.json#/definitions/dataHora"
+        },
+        "pecasConsumidas": {
+          "$ref": "../comum.schema.json#/definitions/pecasConsumidas"
         }
       }
     }

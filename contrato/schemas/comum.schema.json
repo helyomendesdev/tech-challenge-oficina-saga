@@ -56,6 +56,24 @@
         "required": ["pecaId", "quantidade"],
         "properties": {
           "pecaId": { "$ref": "#/definitions/idNumerico" },
+          "quantidade": { "type": "integer", "minimum": 1 },
+          "itemPecaOSId": {
+            "$ref": "#/definitions/idNumerico",
+            "description": "v1.1 (ADR-004), opcional: id do item de peca da OS (a reserva). Execution usa para casar o consumo com a reserva; ausente em GerarOrcamento."
+          }
+        }
+      }
+    },
+    "pecasConsumidas": {
+      "type": "array",
+      "description": "v1.1 (ADR-004): pecas efetivamente usadas na execucao, por item reservado. Item reservado e ausente da lista = nao consumido (OS Service devolve ao estoque).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["itemPecaOSId", "pecaId", "quantidade"],
+        "properties": {
+          "itemPecaOSId": { "$ref": "#/definitions/idNumerico" },
+          "pecaId": { "$ref": "#/definitions/idNumerico" },
           "quantidade": { "type": "integer", "minimum": 1 }
         }
       }

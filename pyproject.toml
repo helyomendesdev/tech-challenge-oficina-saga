@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oficina-saga"
-version = "1.0.0"
+version = "1.1.0"
 description = "Contrato da Saga da oficina: rastreio W3C e propagacao pelo SQS"
 requires-python = ">=3.11"
 dependencies = []

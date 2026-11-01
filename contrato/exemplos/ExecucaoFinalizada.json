@@ -9,6 +9,13 @@
   "occurredAt": "2026-10-08T10:45:00Z",
   "payload": {
     "execucaoId": "122c19c3-081a-5d1f-a708-cd712d0d9417",
-    "finalizadaEm": "2026-10-08T10:45:00Z"
+    "finalizadaEm": "2026-10-08T10:45:00Z",
+    "pecasConsumidas": [
+      {
+        "itemPecaOSId": 501,
+        "pecaId": 40,
+        "quantidade": 1
+      }
+    ]
   }
 }
