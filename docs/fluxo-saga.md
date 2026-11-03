@@ -23,11 +23,11 @@ sequenceDiagram
     OS->>BIL: SolicitarPagamento
     Note over OS: PAGAMENTO_SOLICITADO (o Billing cobra no Mercado Pago)
     BIL-->>OS: PagamentoConfirmado
-    OS->>EXE: IniciarExecucao (oficina-execucao-comandos.fifo)
+    OS->>EXE: IniciarExecucao (oficina-execucao-comandos.fifo; pecas com itemPecaOSId)
     Note over OS: EXECUCAO_SOLICITADA
     EXE-->>OS: ExecucaoIniciada
     Note over OS: EM_EXECUCAO
-    EXE-->>OS: ExecucaoFinalizada
+    EXE-->>OS: ExecucaoFinalizada (pecasConsumidas, ADR-004)
     Note over OS: CONCLUIDA
 ```
 

@@ -2,7 +2,7 @@
 
 Cada questão traz a recomendação atual. Fechada a questão, a decisão vai para um ADR e sai daqui.
 
-Já fechadas: filas FIFO (ADR-001, 2026-10-07); onde entra o pagamento do Mercado Pago ([ADR-002](adr-002-pagamento-antes-da-execucao.md): passo próprio antes da execução, com estorno separado); timeout de aprovação ([ADR-003](adr-003-timeout-de-aprovacao.md): OS Service dispara, prazo configurável, padrão 30 min).
+Já fechadas: filas FIFO (ADR-001, 2026-10-07); onde entra o pagamento do Mercado Pago ([ADR-002](adr-002-pagamento-antes-da-execucao.md): passo próprio antes da execução, com estorno separado); timeout de aprovação ([ADR-003](adr-003-timeout-de-aprovacao.md): OS Service dispara, prazo configurável, padrão 30 min); peças consumidas e reserva por item ([ADR-004](adr-004-pecas-consumidas.md): `itemPecaOSId` e `pecasConsumidas`, opcionais, v1.1).
 
 ## 1. Como o link de pagamento do Mercado Pago chega ao cliente
 

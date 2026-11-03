@@ -18,7 +18,8 @@
     "pecas": [
       {
         "pecaId": 40,
-        "quantidade": 2
+        "quantidade": 2,
+        "itemPecaOSId": 501
       }
     ]
   }

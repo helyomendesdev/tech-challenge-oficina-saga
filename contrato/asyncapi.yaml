@@ -1,7 +1,7 @@
 asyncapi: 3.0.0
 info:
   title: Oficina - Saga da Ordem de Servico
-  version: 1.0.0
+  version: 1.1.0
   description: |
     Contrato v1 (proposta para revisao do grupo) da Saga orquestrada da Fase 4.
     O orquestrador mora no OS Service; Billing e Execucao so recebem comandos
