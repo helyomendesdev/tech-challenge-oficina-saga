@@ -1,4 +1,5 @@
 # Stack real da Saga em local: tres servicos + LocalStack (SQS/DynamoDB) + bancos.
+# O servico criar-filas cria as filas/DLQs do AsyncAPI e a tabela DynamoDB do Execution.
 # Variaveis: ver stack/variaveis.md. Subir: docker compose -f stack/docker-compose.yml up --build
 # Os servicos sao construidos direto do git (Dockerfile na raiz de cada repo).
 
@@ -43,9 +44,11 @@ services:
       - ../stack:/app/stack:ro
     environment:
       <<: *aws
+      EXECUTION_DYNAMODB_TABLE: ${EXECUTION_DYNAMODB_TABLE:-oficina-execucao}
     command: >
       sh -c "pip install --no-cache-dir boto3 pyyaml &&
-             python stack/criar_filas.py"
+             python stack/criar_filas.py &&
+             python stack/criar_tabela_execucao.py"
     depends_on:
       localstack:
         condition: service_healthy
@@ -76,10 +79,14 @@ services:
       retries: 10
 
   os:
-    build: https://github.com/helyomendesdev/tech-challenge-oficina-os.git#main
-    environment:
+    build: &build-os https://github.com/helyomendesdev/tech-challenge-oficina-os.git#main
+    image: oficina-os:local
+    environment: &env-os
       <<: [*aws, *filas, *newrelic]
+      # Provisorio: o -os publica TODOS os comandos numa fila so (ver variaveis.md).
+      # Com a fila do Billing, IniciarExecucao nunca chega a Execucao (-os#17).
       SAGA_QUEUE_URL: ${SAGA_QUEUE_URL:-http://localstack:4566/000000000000/oficina-billing-comandos.fifo}
+      SAGA_RESPONSE_QUEUE_URL: ${QUEUE_OS_SAGA_RESPOSTAS_URL:-http://localstack:4566/000000000000/oficina-os-saga-respostas.fifo}
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_OS:-oficina-os}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-insecure-key}
       RUN_MIGRATIONS: "true"
@@ -94,6 +101,19 @@ services:
         condition: service_healthy
       criar-filas:
         condition: service_completed_successfully
+
+  # Consumidor das respostas da Saga: o entrypoint do -os so sobe o gunicorn, e
+  # o consumo e o management command consumir_respostas_saga. Mesma imagem.
+  os-consumidor:
+    build: *build-os
+    image: oficina-os:local
+    command: ["python", "manage.py", "consumir_respostas_saga"]
+    environment:
+      <<: *env-os
+      RUN_MIGRATIONS: "false"  # quem migra e o servico os
+    depends_on:
+      os:
+        condition: service_healthy
 
   billing:
     build: https://github.com/helyomendesdev/tech-challenge-oficina-billing.git#main
@@ -110,13 +130,16 @@ services:
         condition: service_completed_successfully
 
   execucao:
-    build: https://github.com/helyomendesdev/tech-challenge-oficina-execution.git#main
+    # O codigo do Execution ainda esta na branch feat/execution-service (a main so
+    # tem esqueleto, sem Dockerfile). Trocar o padrao para main depois do merge.
+    build: https://github.com/helyomendesdev/tech-challenge-oficina-execution.git#${EXECUTION_GIT_REF:-feat/execution-service}
     environment:
-      <<: [*aws, *filas, *newrelic]
+      <<: [*aws, *newrelic]
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_EXECUCAO:-oficina-execucao}
-      DYNAMODB_ENDPOINT_URL: ${DYNAMODB_ENDPOINT_URL:-http://localstack:4566}
-    ports:
-      - "8002:8000"
+      EXECUTION_COMMANDS_QUEUE_URL: ${QUEUE_EXECUCAO_COMANDOS_URL:-http://localstack:4566/000000000000/oficina-execucao-comandos.fifo}
+      SAGA_RESPONSES_QUEUE_URL: ${QUEUE_OS_SAGA_RESPOSTAS_URL:-http://localstack:4566/000000000000/oficina-os-saga-respostas.fifo}
+      EXECUTION_DYNAMODB_TABLE: ${EXECUTION_DYNAMODB_TABLE:-oficina-execucao}
+    # Sem porta: o Execution e so consumidor SQS + relay de outbox, sem HTTP.
     depends_on:
       criar-filas:
         condition: service_completed_successfully
