@@ -17,7 +17,6 @@ que o seu codigo define, e o compose faz a ponte (tabela "Por servico", mais aba
 | `QUEUE_EXECUCAO_COMANDOS_DLQ_URL` | `.../oficina-execucao-comandos-dlq.fifo` | DLQ da fila acima. |
 | `QUEUE_OS_SAGA_RESPOSTAS_URL` | `.../oficina-os-saga-respostas.fifo` | Fila de respostas de Billing e Execucao (OS consome, os dois enviam). |
 | `QUEUE_OS_SAGA_RESPOSTAS_DLQ_URL` | `.../oficina-os-saga-respostas-dlq.fifo` | DLQ da fila de respostas. |
-| `SAGA_QUEUE_URL` | igual a `QUEUE_BILLING_COMANDOS_URL` (provisorio) | Legado: hoje o `-os` publica **todas** as mensagens da Saga nesta fila unica (`app/settings.py:150`, `SQSSagaPublisherV1` em `os_service/infrastructure/saga_adapters.py`). No v1 cada comando vai para a fila do destinatario (Billing ou Execucao) e o `-os` consome `QUEUE_OS_SAGA_RESPOSTAS_URL`; a variavel sai no realinhamento do orquestrador (helyomendesdev/tech-challenge-oficina-os#17). |
 | `AWS_ENDPOINT_URL` | `http://localstack:4566` | Endpoint do SQS/DynamoDB. So existe no local; em AWS fica **vazia/ausente** para o SDK usar o endpoint real. |
 | `AWS_REGION` | `us-east-1` | Regiao dos clientes SQS/DynamoDB (a confirmar com a infra, ver `servers` do AsyncAPI). Tambem exportada como `AWS_DEFAULT_REGION`. |
 | `AWS_ACCESS_KEY_ID` | `test` | Credencial **fake** do LocalStack; qualquer valor serve la. Em AWS vem do Learner Lab/IRSA. |
@@ -29,8 +28,12 @@ que o seu codigo define, e o compose faz a ponte (tabela "Por servico", mais aba
 
 | Servico | Variavel que o codigo le | Recebe no compose | Onde o nome esta |
 |---|---|---|---|
-| os | `SAGA_QUEUE_URL` | `oficina-billing-comandos.fifo` (provisorio) | `app/settings.py:150` |
-| os, os-consumidor | `SAGA_RESPONSE_QUEUE_URL` | `QUEUE_OS_SAGA_RESPOSTAS_URL` | `app/settings.py:153`, `saga_consumidor.py:116` |
+| os | `SAGA_BILLING_QUEUE_URL` | `QUEUE_BILLING_COMANDOS_URL` | `app/settings.py:153` |
+| os | `SAGA_EXECUTION_QUEUE_URL` | `QUEUE_EXECUCAO_COMANDOS_URL` | `app/settings.py:154` |
+| os, os-consumidor | `SAGA_RESPONSE_QUEUE_URL` | `QUEUE_OS_SAGA_RESPOSTAS_URL` | `app/settings.py:158`, `saga_consumidor.py:116` |
+
+O `-os` ainda aceita `SAGA_QUEUE_URL` (fila unica, legado) como fallback, mas
+replica o comando para os dois destinos e loga aviso; o compose nao a passa mais.
 | execucao | `EXECUTION_COMMANDS_QUEUE_URL` | `QUEUE_EXECUCAO_COMANDOS_URL` | `execution_service/config.py` |
 | execucao | `SAGA_RESPONSES_QUEUE_URL` (plural, diferente do -os) | `QUEUE_OS_SAGA_RESPOSTAS_URL` | `execution_service/config.py` |
 | execucao | `EXECUTION_DYNAMODB_TABLE` | `oficina-execucao` | `execution_service/config.py` |
