@@ -83,9 +83,9 @@ services:
     image: oficina-os:local
     environment: &env-os
       <<: [*aws, *filas, *newrelic]
-      # Provisorio: o -os publica TODOS os comandos numa fila so (ver variaveis.md).
-      # Com a fila do Billing, IniciarExecucao nunca chega a Execucao (-os#17).
-      SAGA_QUEUE_URL: ${SAGA_QUEUE_URL:-http://localstack:4566/000000000000/oficina-billing-comandos.fifo}
+      # Uma fila de comandos por destinatario (contrato v1, -os#17/#18).
+      SAGA_BILLING_QUEUE_URL: ${QUEUE_BILLING_COMANDOS_URL:-http://localstack:4566/000000000000/oficina-billing-comandos.fifo}
+      SAGA_EXECUTION_QUEUE_URL: ${QUEUE_EXECUCAO_COMANDOS_URL:-http://localstack:4566/000000000000/oficina-execucao-comandos.fifo}
       SAGA_RESPONSE_QUEUE_URL: ${QUEUE_OS_SAGA_RESPOSTAS_URL:-http://localstack:4566/000000000000/oficina-os-saga-respostas.fifo}
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_OS:-oficina-os}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-insecure-key}
