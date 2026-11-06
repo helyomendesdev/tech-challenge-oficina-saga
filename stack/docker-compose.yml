@@ -21,6 +21,9 @@ x-filas: &filas
 x-newrelic: &newrelic
   NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY:-}
   NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME:-oficina}
+  # Espera o registro do agente antes da primeira transacao (padrao 0 descarta o que
+  # chega antes: a abertura da OS sumia do trace no primeiro request de cada worker).
+  NEW_RELIC_STARTUP_TIMEOUT: ${NEW_RELIC_STARTUP_TIMEOUT:-10}
 
 services:
   localstack:
@@ -71,7 +74,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_BILLING_DB:-billing}
       POSTGRES_USER: ${POSTGRES_BILLING_USER:-billing}
-      POSTGRES_PASSWORD: ${POSTGRES_BILLING_PASSWORD:-billing}
+      POSTGRES_PASSWORD: ${POSTGRES_BILLING_PASSWORD:?gere com python stack/gerar_chaves_e2e.py (ver stack/variaveis.md)}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_BILLING_USER:-billing} -d ${POSTGRES_BILLING_DB:-billing}"]
       interval: 5s
@@ -79,7 +82,8 @@ services:
       retries: 10
 
   os:
-    build: &build-os https://github.com/helyomendesdev/tech-challenge-oficina-os.git#main
+    # OS_GIT_URL/OS_GIT_REF: testar um PR antes do merge (ex.: fork + branch do PR).
+    build: &build-os ${OS_GIT_URL:-https://github.com/helyomendesdev/tech-challenge-oficina-os.git}#${OS_GIT_REF:-main}
     image: oficina-os:local
     environment: &env-os
       <<: [*aws, *filas, *newrelic]
@@ -90,7 +94,8 @@ services:
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_OS:-oficina-os}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-insecure-key}
       RUN_MIGRATIONS: "true"
-      POSTGRES_HOST: postgres-os
+      DB_HOST: postgres-os  # app/settings.py:71 le DB_HOST
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,os
       POSTGRES_DB: ${POSTGRES_OS_DB:-os}
       POSTGRES_USER: ${POSTGRES_OS_USER:-os}
       POSTGRES_PASSWORD: ${POSTGRES_OS_PASSWORD:-os}
@@ -108,31 +113,114 @@ services:
     build: *build-os
     image: oficina-os:local
     command: ["python", "manage.py", "consumir_respostas_saga"]
+    # A imagem herda o healthcheck HTTP do gunicorn, mas o consumidor nao serve HTTP:
+    # saudavel = o processo do management command (PID 1) vivo. Sem healthcheck o
+    # `up --wait` falha.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     environment:
       <<: *env-os
       RUN_MIGRATIONS: "false"  # quem migra e o servico os
     depends_on:
       os:
         condition: service_healthy
+      # Depender do seed (one-shot) faz o `up --wait` aceitar a saida 0 dele.
+      seed-os:
+        condition: service_completed_successfully
 
-  billing:
-    build: https://github.com/helyomendesdev/tech-challenge-oficina-billing.git#main
+  # Seed one-shot do -os para o BDD: servico 12 e peca 40 (catalogo do Billing) e o atendente de demo.
+  # ATENDENTE_PASSWORD vazio = o seed_atendente_demo nao cria o usuario (ver stack/variaveis.md).
+  seed-os:
+    build: *build-os
+    image: oficina-os:local
+    volumes:
+      - ./seed_os.py:/stack/seed_os.py:ro
+    command:
+      - sh
+      - -c
+      - python manage.py shell < /stack/seed_os.py && python manage.py seed_atendente_demo
     environment:
+      <<: *env-os
+      RUN_MIGRATIONS: "false"  # quem migra e o servico os
+      ATENDENTE_USERNAME: ${ATENDENTE_USERNAME:-atendente.demo}
+      ATENDENTE_PASSWORD: ${ATENDENTE_PASSWORD:-}
+    depends_on:
+      os:
+        condition: service_healthy
+    restart: "no"
+
+  # Billing: a imagem sobe so a API (uvicorn). Migrate, consumer, relay e operations
+  # sao o mesmo `billing_service.cli` em processos separados, como no compose.yml
+  # e no compose.team.override.yml do proprio -billing.
+  billing:
+    build: &build-billing ${BILLING_GIT_URL:-https://github.com/helyomendesdev/tech-challenge-oficina-billing.git}#${BILLING_GIT_REF:-main}
+    image: oficina-billing:local
+    environment: &env-billing
       <<: [*aws, *filas, *newrelic]
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_BILLING:-oficina-billing}
-      DATABASE_URL: postgresql://${POSTGRES_BILLING_USER:-billing}:${POSTGRES_BILLING_PASSWORD:-billing}@postgres-billing:5432/${POSTGRES_BILLING_DB:-billing}
+      # psycopg 3 (requirements do -billing): o dialeto precisa ser postgresql+psycopg.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_BILLING_USER:-billing}:${POSTGRES_BILLING_PASSWORD:?gere com python stack/gerar_chaves_e2e.py}@postgres-billing:5432/${POSTGRES_BILLING_DB:-billing}
+      # Pagamento fake + development: unico modo em que `cli simulate-payment` roda (usado pelo BDD).
+      APP_ENV: development
+      PAYMENT_PROVIDER: fake
+      # Chave publica (PEM em base64) que valida o JWT do cliente; gerar o par com stack/gerar_chaves_e2e.py.
+      AUTH_JWT_PUBLIC_KEY_B64: ${AUTH_JWT_PUBLIC_KEY_B64:-}
     ports:
       - "8001:8000"
     depends_on:
+      billing-migrate:
+        condition: service_completed_successfully
+      criar-filas:
+        condition: service_completed_successfully
+
+  billing-migrate:
+    build: *build-billing
+    image: oficina-billing:local
+    command: ["python", "-m", "billing_service.cli", "migrate"]
+    environment: *env-billing
+    depends_on:
       postgres-billing:
         condition: service_healthy
+    restart: "no"
+
+  billing-consumidor:
+    build: *build-billing
+    image: oficina-billing:local
+    command: ["python", "-m", "billing_service.cli", "consume"]
+    environment: *env-billing
+    depends_on:
+      billing-migrate:
+        condition: service_completed_successfully
       criar-filas:
+        condition: service_completed_successfully
+
+  billing-relay:
+    build: *build-billing
+    image: oficina-billing:local
+    command: ["python", "-m", "billing_service.cli", "relay"]
+    environment: *env-billing
+    depends_on:
+      billing-migrate:
+        condition: service_completed_successfully
+      criar-filas:
+        condition: service_completed_successfully
+
+  billing-operations:
+    build: *build-billing
+    image: oficina-billing:local
+    command: ["python", "-m", "billing_service.cli", "operations"]
+    environment: *env-billing
+    depends_on:
+      billing-migrate:
         condition: service_completed_successfully
 
   execucao:
     # O codigo do Execution ainda esta na branch feat/execution-service (a main so
     # tem esqueleto, sem Dockerfile). Trocar o padrao para main depois do merge.
-    build: https://github.com/helyomendesdev/tech-challenge-oficina-execution.git#${EXECUTION_GIT_REF:-feat/execution-service}
+    build: ${EXECUTION_GIT_URL:-https://github.com/helyomendesdev/tech-challenge-oficina-execution.git}#${EXECUTION_GIT_REF:-feat/execution-service}
     environment:
       <<: [*aws, *newrelic]
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_EXECUCAO:-oficina-execucao}
