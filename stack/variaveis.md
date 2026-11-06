@@ -50,6 +50,42 @@ processo a Saga nao anda depois da primeira resposta.
 O Execution e construido de `feat/execution-service` (`EXECUTION_GIT_REF`),
 porque a `main` dele ainda nao tem codigo nem Dockerfile.
 
+## Autenticacao e pagamento no teste integrado (BDD stack-real)
+
+Estas variaveis sao do **driver** (`e2e/driver_stack_real.py`), exceto as marcadas
+com um servico. Sao so para o teste local: a chave privada nunca entra no
+repositorio (`stack/.local/` esta no `.gitignore`).
+
+| Variavel | Quem le | Padrao | Para que serve |
+|---|---|---|---|
+| `ATENDENTE_USERNAME` | compose (`seed-os`) → `seed_atendente_demo` do -os | `atendente.demo` | Usuario staff criado no -os para o BDD. |
+| `ATENDENTE_PASSWORD` | compose (`seed-os`) → `seed_atendente_demo` do -os | vazia | Senha do atendente. **Vazia = o seed nao cria o usuario** (aviso, exit 0); defina antes do `up`. Sem padrao versionado de proposito. |
+| `SAGA_E2E_ATENDENTE_USERNAME` | driver | `atendente.demo` | Usuario do login em `POST /api/v1/auth/token/`; use o mesmo valor de `ATENDENTE_USERNAME`. |
+| `SAGA_E2E_ATENDENTE_PASSWORD` | driver | vazia | Senha do login (mesmo valor de `ATENDENTE_PASSWORD`). Com ela o driver faz login uma vez e manda `Bearer <access>` na abertura, na leitura da OS e na consulta da Saga. Vazia = cai em `SAGA_E2E_TOKEN`, se houver. |
+| `AUTH_JWT_PUBLIC_KEY_B64` | billing (`config.py`) | vazia | Chave **publica** (PEM em base64) que o Billing usa para validar o JWT RS256 do cliente. Vazia = toda rota de cliente responde 503. Imprimir com `python stack/gerar_chaves_e2e.py`. |
+| `SAGA_E2E_CLIENTE_CHAVE_PRIVADA` | driver | vazia | Caminho do PEM da chave **privada** de teste (`stack/.local/cliente-e2e.pem`, gerada pelo mesmo script). Com ela o driver assina o JWT do cliente (`iss oficina-auth`, `aud oficina-api`, `sub cliente:<id>`) com o `cliente_id` do Cliente que o -os criou na abertura. Vazia = cai em `SAGA_E2E_TOKEN`. |
+| `SAGA_E2E_TOKEN` | driver | vazia | Bearer fixo, usado so onde o login do atendente / a chave do cliente nao estao configurados. |
+| `SAGA_E2E_SIMULAR_PAGAMENTO_CMD` | driver | vazia | Comando que confirma o pagamento no Billing fake (que nao tem webhook). `{payment_id}` e `{outcome}` sao trocados; o driver espera o pagamento existir (`GET /api/v1/orcamentos/{id}/pagamento`) e roda o comando quando o passo `PagamentoConfirmado` (`approved`) ou `PagamentoFalhou` (`rejected`, so se o comando tiver `{outcome}`) acontece. Vazia = so espera, como antes. |
+| `APP_ENV`, `PAYMENT_PROVIDER` | billing | `development`, `fake` | Fixados no compose: `simulate-payment` so roda com os dois. |
+
+Passo a passo local:
+
+```bash
+python stack/gerar_chaves_e2e.py                     # imprime o b64 da publica e cria stack/.local/cliente-e2e.pem
+export AUTH_JWT_PUBLIC_KEY_B64=<b64 impresso>
+export ATENDENTE_PASSWORD=<senha de demo>
+docker compose -f stack/docker-compose.yml up -d --build --wait
+export SAGA_E2E_DRIVER=stack-real SAGA_E2E_ATENDENTE_PASSWORD=$ATENDENTE_PASSWORD
+export SAGA_E2E_CLIENTE_CHAVE_PRIVADA=stack/.local/cliente-e2e.pem
+export SAGA_E2E_SIMULAR_PAGAMENTO_CMD='docker compose -f stack/docker-compose.yml exec -T billing python -m billing_service.cli simulate-payment --payment-id {payment_id} --outcome {outcome}'
+pytest -q e2e
+```
+
+O servico `seed-os` (one-shot) roda `stack/seed_os.py` pelo `manage.py shell` e
+`seed_atendente_demo`: cria o servico 12 e a peca 40 (estoque 100) do catalogo do
+Billing (`config/catalog.demo.json`, 15000 e 2500 centavos) e o atendente. E
+idempotente; a cada execucao repoe o estoque.
+
 ## Outras especificas de servico
 
 | Variavel | Servico | Para que serve |

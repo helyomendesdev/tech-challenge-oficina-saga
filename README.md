@@ -114,7 +114,10 @@ Variáveis do motor `stack-real` (todas opcionais):
 |---|---|---|
 | `SAGA_E2E_OS_URL` | `http://localhost:8000` | Base do OS Service |
 | `SAGA_E2E_BILLING_URL` | `http://localhost:8001` | Base do Billing (aprovação do orçamento) |
-| `SAGA_E2E_TOKEN` | vazia | JWT Bearer; vazio = sem cabeçalho `Authorization` |
+| `SAGA_E2E_TOKEN` | vazia | JWT Bearer de reserva, usado onde o login do atendente / a chave do cliente não estão configurados; vazio = sem cabeçalho `Authorization` |
+| `SAGA_E2E_ATENDENTE_USERNAME` / `SAGA_E2E_ATENDENTE_PASSWORD` | `atendente.demo` / vazia | Login do atendente no `-os` (`/api/v1/auth/token/`); o Bearer vai na abertura, na leitura da OS e na consulta da Saga |
+| `SAGA_E2E_CLIENTE_CHAVE_PRIVADA` | vazia | Caminho do PEM de teste (gerado por `stack/gerar_chaves_e2e.py`) com que o driver assina o JWT do cliente na aprovação do Billing |
+| `SAGA_E2E_SIMULAR_PAGAMENTO_CMD` | vazia | Comando que confirma o pagamento no Billing fake; sem ele o motor só espera |
 | `SAGA_E2E_TIMEOUT_S` | `60` | Quanto esperar cada passo aparecer no histórico |
 | `SAGA_E2E_INTERVALO_S` | `1` | Intervalo entre consultas |
 

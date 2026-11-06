@@ -115,12 +115,38 @@ services:
       os:
         condition: service_healthy
 
+  # Seed one-shot do -os para o BDD: servico 12 e peca 40 (catalogo do Billing) e o atendente de demo.
+  # ATENDENTE_PASSWORD vazio = o seed_atendente_demo nao cria o usuario (ver stack/variaveis.md).
+  seed-os:
+    build: *build-os
+    image: oficina-os:local
+    volumes:
+      - ./seed_os.py:/stack/seed_os.py:ro
+    command:
+      - sh
+      - -c
+      - python manage.py shell < /stack/seed_os.py && python manage.py seed_atendente_demo
+    environment:
+      <<: *env-os
+      RUN_MIGRATIONS: "false"  # quem migra e o servico os
+      ATENDENTE_USERNAME: ${ATENDENTE_USERNAME:-atendente.demo}
+      ATENDENTE_PASSWORD: ${ATENDENTE_PASSWORD:-}
+    depends_on:
+      os:
+        condition: service_healthy
+    restart: "no"
+
   billing:
     build: https://github.com/helyomendesdev/tech-challenge-oficina-billing.git#main
     environment:
       <<: [*aws, *filas, *newrelic]
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_BILLING:-oficina-billing}
       DATABASE_URL: postgresql://${POSTGRES_BILLING_USER:-billing}:${POSTGRES_BILLING_PASSWORD:-billing}@postgres-billing:5432/${POSTGRES_BILLING_DB:-billing}
+      # Pagamento fake + development: unico modo em que `cli simulate-payment` roda (usado pelo BDD).
+      APP_ENV: development
+      PAYMENT_PROVIDER: fake
+      # Chave publica (PEM em base64) que valida o JWT do cliente; gerar o par com stack/gerar_chaves_e2e.py.
+      AUTH_JWT_PUBLIC_KEY_B64: ${AUTH_JWT_PUBLIC_KEY_B64:-}
     ports:
       - "8001:8000"
     depends_on:
