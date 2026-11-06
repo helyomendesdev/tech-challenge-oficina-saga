@@ -99,5 +99,5 @@ idempotente; a cada execucao repoe o estoque.
 |---|---|---|
 | `DJANGO_SECRET_KEY` | os | Segredo do Django; o padrao local e inseguro de proposito. |
 | `RUN_MIGRATIONS` | os, os-consumidor | `true` faz o entrypoint rodar `migrate` na subida (confirmado no `docker-entrypoint.sh`); so o `os` migra. |
-| `POSTGRES_OS_DB`, `POSTGRES_OS_USER`, `POSTGRES_OS_PASSWORD` | os, postgres-os | Banco local do OS; o servico recebe como `POSTGRES_HOST/DB/USER/PASSWORD`. |
+| `POSTGRES_OS_DB`, `POSTGRES_OS_USER`, `POSTGRES_OS_PASSWORD` | os, postgres-os | Banco local do OS; o servico recebe como `DB_HOST` e `POSTGRES_DB/USER/PASSWORD`. |
 | `POSTGRES_BILLING_DB`, `POSTGRES_BILLING_USER`, `POSTGRES_BILLING_PASSWORD` | billing, postgres-billing | Banco local do Billing; os servicos billing* recebem `DATABASE_URL` (dialeto `postgresql+psycopg`). |

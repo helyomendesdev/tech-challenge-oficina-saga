@@ -91,7 +91,8 @@ services:
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_OS:-oficina-os}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-insecure-key}
       RUN_MIGRATIONS: "true"
-      POSTGRES_HOST: postgres-os
+      DB_HOST: postgres-os  # app/settings.py:71 le DB_HOST
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,os
       POSTGRES_DB: ${POSTGRES_OS_DB:-os}
       POSTGRES_USER: ${POSTGRES_OS_USER:-os}
       POSTGRES_PASSWORD: ${POSTGRES_OS_PASSWORD:-os}
@@ -109,12 +110,23 @@ services:
     build: *build-os
     image: oficina-os:local
     command: ["python", "manage.py", "consumir_respostas_saga"]
+    # A imagem herda o healthcheck HTTP do gunicorn, mas o consumidor nao serve HTTP:
+    # saudavel = o processo do management command (PID 1) vivo. Sem healthcheck o
+    # `up --wait` falha.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     environment:
       <<: *env-os
       RUN_MIGRATIONS: "false"  # quem migra e o servico os
     depends_on:
       os:
         condition: service_healthy
+      # Depender do seed (one-shot) faz o `up --wait` aceitar a saida 0 dele.
+      seed-os:
+        condition: service_completed_successfully
 
   # Seed one-shot do -os para o BDD: servico 12 e peca 40 (catalogo do Billing) e o atendente de demo.
   # ATENDENTE_PASSWORD vazio = o seed_atendente_demo nao cria o usuario (ver stack/variaveis.md).
