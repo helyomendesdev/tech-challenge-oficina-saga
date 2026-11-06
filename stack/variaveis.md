@@ -54,7 +54,7 @@ O -os e o Billing tambem aceitam ref: `OS_GIT_URL` (padrao o repo do -os) e
 `OS_GIT_REF` (padrao `main`) servem para testar um PR antes do merge, por exemplo
 `OS_GIT_URL=https://github.com/luisfmontes/tech-challenge-oficina-os.git`
 e `OS_GIT_REF=feat/consulta-saga`; `BILLING_GIT_REF` (padrao `main`) faz o mesmo no
-Billing. A imagem do Billing sobe so a API; `billing-migrate`, `billing-consumidor`,
+Billing (e `BILLING_GIT_URL`/`EXECUTION_GIT_URL` trocam o repositorio, ex.: um fork com a branch do PR). A imagem do Billing sobe so a API; `billing-migrate`, `billing-consumidor`,
 `billing-relay` e `billing-operations` rodam o `billing_service.cli` na mesma imagem.
 
 ## Autenticacao e pagamento no teste integrado (BDD stack-real)

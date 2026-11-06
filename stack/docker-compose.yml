@@ -21,6 +21,9 @@ x-filas: &filas
 x-newrelic: &newrelic
   NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY:-}
   NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME:-oficina}
+  # Espera o registro do agente antes da primeira transacao (padrao 0 descarta o que
+  # chega antes: a abertura da OS sumia do trace no primeiro request de cada worker).
+  NEW_RELIC_STARTUP_TIMEOUT: ${NEW_RELIC_STARTUP_TIMEOUT:-10}
 
 services:
   localstack:
@@ -153,7 +156,7 @@ services:
   # sao o mesmo `billing_service.cli` em processos separados, como no compose.yml
   # e no compose.team.override.yml do proprio -billing.
   billing:
-    build: &build-billing https://github.com/helyomendesdev/tech-challenge-oficina-billing.git#${BILLING_GIT_REF:-main}
+    build: &build-billing ${BILLING_GIT_URL:-https://github.com/helyomendesdev/tech-challenge-oficina-billing.git}#${BILLING_GIT_REF:-main}
     image: oficina-billing:local
     environment: &env-billing
       <<: [*aws, *filas, *newrelic]
@@ -217,7 +220,7 @@ services:
   execucao:
     # O codigo do Execution ainda esta na branch feat/execution-service (a main so
     # tem esqueleto, sem Dockerfile). Trocar o padrao para main depois do merge.
-    build: https://github.com/helyomendesdev/tech-challenge-oficina-execution.git#${EXECUTION_GIT_REF:-feat/execution-service}
+    build: ${EXECUTION_GIT_URL:-https://github.com/helyomendesdev/tech-challenge-oficina-execution.git}#${EXECUTION_GIT_REF:-feat/execution-service}
     environment:
       <<: [*aws, *newrelic]
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_EXECUCAO:-oficina-execucao}
