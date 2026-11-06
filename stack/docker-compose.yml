@@ -79,7 +79,8 @@ services:
       retries: 10
 
   os:
-    build: &build-os https://github.com/helyomendesdev/tech-challenge-oficina-os.git#main
+    # OS_GIT_URL/OS_GIT_REF: testar um PR antes do merge (ex.: fork + branch do PR).
+    build: &build-os ${OS_GIT_URL:-https://github.com/helyomendesdev/tech-challenge-oficina-os.git}#${OS_GIT_REF:-main}
     image: oficina-os:local
     environment: &env-os
       <<: [*aws, *filas, *newrelic]
@@ -136,12 +137,17 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # Billing: a imagem sobe so a API (uvicorn). Migrate, consumer, relay e operations
+  # sao o mesmo `billing_service.cli` em processos separados, como no compose.yml
+  # e no compose.team.override.yml do proprio -billing.
   billing:
-    build: https://github.com/helyomendesdev/tech-challenge-oficina-billing.git#main
-    environment:
+    build: &build-billing https://github.com/helyomendesdev/tech-challenge-oficina-billing.git#${BILLING_GIT_REF:-main}
+    image: oficina-billing:local
+    environment: &env-billing
       <<: [*aws, *filas, *newrelic]
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_BILLING:-oficina-billing}
-      DATABASE_URL: postgresql://${POSTGRES_BILLING_USER:-billing}:${POSTGRES_BILLING_PASSWORD:-billing}@postgres-billing:5432/${POSTGRES_BILLING_DB:-billing}
+      # psycopg 3 (requirements do -billing): o dialeto precisa ser postgresql+psycopg.
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_BILLING_USER:-billing}:${POSTGRES_BILLING_PASSWORD:-billing}@postgres-billing:5432/${POSTGRES_BILLING_DB:-billing}
       # Pagamento fake + development: unico modo em que `cli simulate-payment` roda (usado pelo BDD).
       APP_ENV: development
       PAYMENT_PROVIDER: fake
@@ -150,9 +156,50 @@ services:
     ports:
       - "8001:8000"
     depends_on:
+      billing-migrate:
+        condition: service_completed_successfully
+      criar-filas:
+        condition: service_completed_successfully
+
+  billing-migrate:
+    build: *build-billing
+    image: oficina-billing:local
+    command: ["python", "-m", "billing_service.cli", "migrate"]
+    environment: *env-billing
+    depends_on:
       postgres-billing:
         condition: service_healthy
+    restart: "no"
+
+  billing-consumidor:
+    build: *build-billing
+    image: oficina-billing:local
+    command: ["python", "-m", "billing_service.cli", "consume"]
+    environment: *env-billing
+    depends_on:
+      billing-migrate:
+        condition: service_completed_successfully
       criar-filas:
+        condition: service_completed_successfully
+
+  billing-relay:
+    build: *build-billing
+    image: oficina-billing:local
+    command: ["python", "-m", "billing_service.cli", "relay"]
+    environment: *env-billing
+    depends_on:
+      billing-migrate:
+        condition: service_completed_successfully
+      criar-filas:
+        condition: service_completed_successfully
+
+  billing-operations:
+    build: *build-billing
+    image: oficina-billing:local
+    command: ["python", "-m", "billing_service.cli", "operations"]
+    environment: *env-billing
+    depends_on:
+      billing-migrate:
         condition: service_completed_successfully
 
   execucao:

@@ -50,6 +50,13 @@ processo a Saga nao anda depois da primeira resposta.
 O Execution e construido de `feat/execution-service` (`EXECUTION_GIT_REF`),
 porque a `main` dele ainda nao tem codigo nem Dockerfile.
 
+O -os e o Billing tambem aceitam ref: `OS_GIT_URL` (padrao o repo do -os) e
+`OS_GIT_REF` (padrao `main`) servem para testar um PR antes do merge, por exemplo
+`OS_GIT_URL=https://github.com/luisfmontes/tech-challenge-oficina-os.git`
+e `OS_GIT_REF=feat/consulta-saga`; `BILLING_GIT_REF` (padrao `main`) faz o mesmo no
+Billing. A imagem do Billing sobe so a API; `billing-migrate`, `billing-consumidor`,
+`billing-relay` e `billing-operations` rodam o `billing_service.cli` na mesma imagem.
+
 ## Autenticacao e pagamento no teste integrado (BDD stack-real)
 
 Estas variaveis sao do **driver** (`e2e/driver_stack_real.py`), exceto as marcadas
@@ -93,4 +100,4 @@ idempotente; a cada execucao repoe o estoque.
 | `DJANGO_SECRET_KEY` | os | Segredo do Django; o padrao local e inseguro de proposito. |
 | `RUN_MIGRATIONS` | os, os-consumidor | `true` faz o entrypoint rodar `migrate` na subida (confirmado no `docker-entrypoint.sh`); so o `os` migra. |
 | `POSTGRES_OS_DB`, `POSTGRES_OS_USER`, `POSTGRES_OS_PASSWORD` | os, postgres-os | Banco local do OS; o servico recebe como `POSTGRES_HOST/DB/USER/PASSWORD`. |
-| `POSTGRES_BILLING_DB`, `POSTGRES_BILLING_USER`, `POSTGRES_BILLING_PASSWORD` | billing, postgres-billing | Banco local do Billing; o servico recebe `DATABASE_URL`. Repo ainda vazio: o formato e proposta, e o `up --build` falha ate o Billing ter Dockerfile. |
+| `POSTGRES_BILLING_DB`, `POSTGRES_BILLING_USER`, `POSTGRES_BILLING_PASSWORD` | billing, postgres-billing | Banco local do Billing; os servicos billing* recebem `DATABASE_URL` (dialeto `postgresql+psycopg`). |
