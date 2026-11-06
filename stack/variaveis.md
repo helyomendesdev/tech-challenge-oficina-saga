@@ -78,15 +78,21 @@ repositorio (`stack/.local/` esta no `.gitignore`).
 Passo a passo local:
 
 ```bash
-python stack/gerar_chaves_e2e.py                     # imprime o b64 da publica e cria stack/.local/cliente-e2e.pem
-export AUTH_JWT_PUBLIC_KEY_B64=<b64 impresso>
-export ATENDENTE_PASSWORD=<senha de demo>
-docker compose -f stack/docker-compose.yml up -d --build --wait
-export SAGA_E2E_DRIVER=stack-real SAGA_E2E_ATENDENTE_PASSWORD=$ATENDENTE_PASSWORD
-export SAGA_E2E_CLIENTE_CHAVE_PRIVADA=stack/.local/cliente-e2e.pem
-export SAGA_E2E_SIMULAR_PAGAMENTO_CMD='docker compose -f stack/docker-compose.yml exec -T billing python -m billing_service.cli simulate-payment --payment-id {payment_id} --outcome {outcome}'
+python stack/gerar_chaves_e2e.py   # cria stack/.local/cliente-e2e.pem e stack/.local/e2e.env
+docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml up -d --build --wait
+set -a; . stack/.local/e2e.env; set +a
+export SAGA_E2E_DRIVER=stack-real
+export SAGA_E2E_SIMULAR_PAGAMENTO_CMD='docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml exec -T billing python -m billing_service.cli simulate-payment --payment-id {payment_id} --outcome {outcome}'
 pytest -q e2e
 ```
+
+O `e2e.env` traz `AUTH_JWT_PUBLIC_KEY_B64`, `ATENDENTE_PASSWORD` (e o mesmo valor em
+`SAGA_E2E_ATENDENTE_PASSWORD`), `POSTGRES_BILLING_PASSWORD` e
+`SAGA_E2E_CLIENTE_CHAVE_PRIVADA`, com senhas aleatorias geradas na maquina. O compose
+exige `POSTGRES_BILLING_PASSWORD` (sem padrao versionado). Se outro processo da
+maquina escutar em `[::1]:8000`, aponte o driver para `SAGA_E2E_OS_URL=http://127.0.0.1:8000`
+(e `SAGA_E2E_BILLING_URL=http://127.0.0.1:8001`). No Docker Desktop, o build a partir
+do git pode precisar de `COMPOSE_BAKE=false`.
 
 O servico `seed-os` (one-shot) roda `stack/seed_os.py` pelo `manage.py shell` e
 `seed_atendente_demo`: cria o servico 12 e a peca 40 (estoque 100) do catalogo do
@@ -100,4 +106,4 @@ idempotente; a cada execucao repoe o estoque.
 | `DJANGO_SECRET_KEY` | os | Segredo do Django; o padrao local e inseguro de proposito. |
 | `RUN_MIGRATIONS` | os, os-consumidor | `true` faz o entrypoint rodar `migrate` na subida (confirmado no `docker-entrypoint.sh`); so o `os` migra. |
 | `POSTGRES_OS_DB`, `POSTGRES_OS_USER`, `POSTGRES_OS_PASSWORD` | os, postgres-os | Banco local do OS; o servico recebe como `DB_HOST` e `POSTGRES_DB/USER/PASSWORD`. |
-| `POSTGRES_BILLING_DB`, `POSTGRES_BILLING_USER`, `POSTGRES_BILLING_PASSWORD` | billing, postgres-billing | Banco local do Billing; os servicos billing* recebem `DATABASE_URL` (dialeto `postgresql+psycopg`). |
+| `POSTGRES_BILLING_DB`, `POSTGRES_BILLING_USER`, `POSTGRES_BILLING_PASSWORD` | billing, postgres-billing | Banco local do Billing; os servicos billing* recebem `DATABASE_URL` (dialeto `postgresql+psycopg`). `POSTGRES_BILLING_PASSWORD` e obrigatoria (gerada no `stack/.local/e2e.env`). |

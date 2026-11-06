@@ -71,7 +71,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_BILLING_DB:-billing}
       POSTGRES_USER: ${POSTGRES_BILLING_USER:-billing}
-      POSTGRES_PASSWORD: ${POSTGRES_BILLING_PASSWORD:-billing}
+      POSTGRES_PASSWORD: ${POSTGRES_BILLING_PASSWORD:?gere com python stack/gerar_chaves_e2e.py (ver stack/variaveis.md)}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_BILLING_USER:-billing} -d ${POSTGRES_BILLING_DB:-billing}"]
       interval: 5s
@@ -159,7 +159,7 @@ services:
       <<: [*aws, *filas, *newrelic]
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_BILLING:-oficina-billing}
       # psycopg 3 (requirements do -billing): o dialeto precisa ser postgresql+psycopg.
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_BILLING_USER:-billing}:${POSTGRES_BILLING_PASSWORD:-billing}@postgres-billing:5432/${POSTGRES_BILLING_DB:-billing}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_BILLING_USER:-billing}:${POSTGRES_BILLING_PASSWORD:?gere com python stack/gerar_chaves_e2e.py}@postgres-billing:5432/${POSTGRES_BILLING_DB:-billing}
       # Pagamento fake + development: unico modo em que `cli simulate-payment` roda (usado pelo BDD).
       APP_ENV: development
       PAYMENT_PROVIDER: fake

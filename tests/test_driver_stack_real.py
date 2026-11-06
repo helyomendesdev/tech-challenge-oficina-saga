@@ -791,3 +791,16 @@ def test_conexao_recusada_da_mensagem_clara(monkeypatch):
     motor = DriverStackReal()
     with pytest.raises(AssertionError, match="nao ficou pronto.*sem conexao"):
         motor.iniciar_saga(cliente_id=1, veiculo_id=1, servicos=[], pecas=[])
+
+
+def test_gerar_env_tem_os_segredos_e_reaproveita_as_senhas(tmp_path):
+    b64 = gerar_chaves_e2e.gerar(tmp_path)
+    arquivo = gerar_chaves_e2e.gerar_env(tmp_path, b64)
+    linhas = dict(l.split("=", 1) for l in arquivo.read_text(encoding="utf-8").splitlines() if "=" in l and not l.startswith("#"))
+    assert linhas["AUTH_JWT_PUBLIC_KEY_B64"] == b64
+    assert linhas["ATENDENTE_PASSWORD"] and linhas["ATENDENTE_PASSWORD"] == linhas["SAGA_E2E_ATENDENTE_PASSWORD"]
+    assert linhas["POSTGRES_BILLING_PASSWORD"] and linhas["POSTGRES_BILLING_PASSWORD"] != linhas["ATENDENTE_PASSWORD"]
+    assert linhas["SAGA_E2E_CLIENTE_CHAVE_PRIVADA"].endswith(gerar_chaves_e2e.NOME_PRIVADA)
+    de_novo = gerar_chaves_e2e.gerar_env(tmp_path, b64).read_text(encoding="utf-8")
+    assert f"ATENDENTE_PASSWORD={linhas['ATENDENTE_PASSWORD']}" in de_novo
+    assert f"POSTGRES_BILLING_PASSWORD={linhas['POSTGRES_BILLING_PASSWORD']}" in de_novo

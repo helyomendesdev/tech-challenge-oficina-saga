@@ -31,7 +31,7 @@ destino do comando, o motivo nem o codigo de erro: `destino`, `motivo` e
 
 import json
 import os
-import random
+import secrets
 import shlex
 import string
 import subprocess
@@ -61,6 +61,11 @@ _ROTA_LOGIN = "/api/v1/auth/token/"
 _DESFECHO_SIMULADO = {"PagamentoConfirmado": "approved", "PagamentoFalhou": "rejected"}
 
 
+# Gerador do sistema operacional: os dados nao sao segredo, mas assim nao ha
+# PRNG previsivel no codigo (Sonar python:S2245).
+_ALEATORIO = secrets.SystemRandom()
+
+
 def _digito_cpf(digitos):
     soma = sum(int(d) * peso for d, peso in zip(digitos, range(len(digitos) + 1, 1, -1)))
     resto = soma * 10 % 11
@@ -69,24 +74,24 @@ def _digito_cpf(digitos):
 
 def _dados_unicos():
     """Cliente e veiculo validos para o -os (CPF e placa unicos por execucao: o banco os exige unicos)."""
-    base = "".join(random.choices(string.digits, k=9))
+    base = "".join(_ALEATORIO.choices(string.digits, k=9))
     if len(set(base)) == 1:  # digitos todos iguais sao CPFs reprovados pelo validador
         base = string.digits[1:]
     cpf = base + _digito_cpf(base)
     cpf += _digito_cpf(cpf)
     letras = "ABCDEFGHJKLMNPQRSTUVWXYZ"
     placa = (
-        "".join(random.choices(letras, k=3))
-        + random.choice(string.digits)
-        + random.choice(letras + string.digits)
-        + "".join(random.choices(string.digits, k=2))
+        "".join(_ALEATORIO.choices(letras, k=3))
+        + _ALEATORIO.choice(string.digits)
+        + _ALEATORIO.choice(letras + string.digits)
+        + "".join(_ALEATORIO.choices(string.digits, k=2))
     )
     sufixo = uuid.uuid4().hex[:8]
     cliente = {
         "nome": f"Cliente BDD {sufixo}",
         "documento": cpf,
         "email": f"bdd-{sufixo}@example.com",
-        "telefone": "119" + "".join(random.choices(string.digits, k=8)),
+        "telefone": "119" + "".join(_ALEATORIO.choices(string.digits, k=8)),
     }
     veiculo = {"placa": placa, "marca": "Fiat", "modelo": "Uno", "ano": 2015}
     return cliente, veiculo
