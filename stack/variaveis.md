@@ -28,8 +28,8 @@ que o seu codigo define, e o compose faz a ponte (tabela "Por servico", mais aba
 
 | Servico | Variavel que o codigo le | Recebe no compose | Onde o nome esta |
 |---|---|---|---|
-| os | `SAGA_BILLING_QUEUE_URL` | `QUEUE_BILLING_COMANDOS_URL` | `app/settings.py:153` |
-| os | `SAGA_EXECUTION_QUEUE_URL` | `QUEUE_EXECUCAO_COMANDOS_URL` | `app/settings.py:154` |
+| os, os-publicador | `SAGA_BILLING_QUEUE_URL` | `QUEUE_BILLING_COMANDOS_URL` | `app/settings.py:153`, `publicar_comandos_saga.py` |
+| os, os-publicador | `SAGA_EXECUTION_QUEUE_URL` | `QUEUE_EXECUCAO_COMANDOS_URL` | `app/settings.py:154`, `publicar_comandos_saga.py` |
 | os, os-consumidor | `SAGA_RESPONSE_QUEUE_URL` | `QUEUE_OS_SAGA_RESPOSTAS_URL` | `app/settings.py:158`, `saga_consumidor.py:116` |
 
 O `-os` ainda aceita `SAGA_QUEUE_URL` (fila unica, legado) como fallback, mas
@@ -46,6 +46,11 @@ mesmo esquema do `infra/main.tf` dele.
 O servico `os-consumidor` roda `python manage.py consumir_respostas_saga` na
 mesma imagem do `os`: o entrypoint do `-os` so sobe o gunicorn, e sem esse
 processo a Saga nao anda depois da primeira resposta.
+
+O servico `os-publicador` roda `python manage.py publicar_comandos_saga --loop`
+na mesma imagem: desde o -os#24 (outbox do ADR-001) o `os` so grava o comando
+em `saga_comando`, e quem publica nas filas e esse drain. Sem ele nenhum
+comando sai do -os e a Saga para na abertura.
 
 O Execution e construido de `feat/execution-service` (`EXECUTION_GIT_REF`),
 porque a `main` dele ainda nao tem codigo nem Dockerfile.
