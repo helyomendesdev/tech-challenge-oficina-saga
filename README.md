@@ -2,7 +2,85 @@
 
 Contrato de mensagens, documentação e testes ponta a ponta da **Saga orquestrada** que liga OS Service, Billing e Execução.
 
-> **Status: v1 — contrato aprovado no PR #2 (prazo de entrega 24/10/2026).** Pontos ainda em aberto em [`docs/questoes-abertas.md`](docs/questoes-abertas.md).
+> **Status: contrato v1.1.0** (tag [`v1.1.0`](https://github.com/helyomendesdev/tech-challenge-oficina-saga/releases/tag/v1.1.0): reserva por item e peças consumidas, [ADR-004](docs/adr-004-pecas-consumidas.md)). Pontos ainda em aberto em [`docs/questoes-abertas.md`](docs/questoes-abertas.md).
+
+## Arquitetura
+
+Três microsserviços, cada um com repositório, pipeline e banco próprios; nenhum acessa o banco de outro. Eles conversam só por filas SQS FIFO (comando e resposta) e, quando há usuário do outro lado, por REST.
+
+```mermaid
+flowchart LR
+  atendente([Atendente]) -->|REST + JWT| os
+  cliente([Cliente]) -->|REST + JWT do -auth| billing
+  mp[(Mercado Pago)] <-->|checkout + webhook| billing
+
+  subgraph os_svc[OS Service]
+    os[API Django<br/>+ orquestrador da Saga]
+    osdb[(PostgreSQL<br/>OS + estado da Saga)]
+    os --- osdb
+  end
+  subgraph billing_svc[Billing]
+    billing[API FastAPI<br/>+ consumer/relay]
+    bdb[(PostgreSQL<br/>orcamento + pagamento)]
+    billing --- bdb
+  end
+  subgraph exec_svc[Execução]
+    exec[Worker<br/>consumer/relay]
+    edb[(DynamoDB<br/>execucao + pecas)]
+    exec --- edb
+  end
+
+  os -->|oficina-billing-comandos.fifo| billing
+  os -->|oficina-execucao-comandos.fifo| exec
+  billing -->|oficina-os-saga-respostas.fifo| os
+  exec -->|oficina-os-saga-respostas.fifo| os
+
+  os -.->|traces| nr[(New Relic)]
+  billing -.-> nr
+  exec -.-> nr
+```
+
+| Serviço | Repositório | Banco | Papel na Saga |
+|---|---|---|---|
+| OS Service | [tech-challenge-oficina-os](https://github.com/helyomendesdev/tech-challenge-oficina-os) | PostgreSQL (SQL) | Abre a OS, **orquestra** a Saga, guarda estado e histórico, expõe a consulta |
+| Billing | [tech-challenge-oficina-billing](https://github.com/helyomendesdev/tech-challenge-oficina-billing) | PostgreSQL (SQL) | Gera orçamento, recebe a aprovação do cliente, cobra e estorna no Mercado Pago |
+| Execução | [tech-challenge-oficina-execution](https://github.com/helyomendesdev/tech-challenge-oficina-execution) | DynamoDB (NoSQL) | Reserva/consome peças, executa os serviços, comunica a finalização |
+| Saga (este repo) | [tech-challenge-oficina-saga](https://github.com/helyomendesdev/tech-challenge-oficina-saga) | — | Contrato das mensagens, kit de tracing, BDD ponta a ponta, stack local |
+
+Infraestrutura compartilhada (VPC, EKS, ALB, ECR) em [tech-challenge-oficina-k8s](https://github.com/helyomendesdev/tech-challenge-oficina-k8s) e banco gerenciado em [tech-challenge-oficina-database](https://github.com/helyomendesdev/tech-challenge-oficina-database). Pipeline, cobertura de testes e Swagger de cada serviço estão no README do próprio repositório.
+
+## Por que Saga orquestrada
+
+Decisão completa em [ADR-001](docs/adr-001-saga-orquestrada.md). Em resumo:
+
+- **O fluxo é linear e curto** (orçamento → aprovação → pagamento → execução) e a **compensação** é a parte crítica. Com um orquestrador, a sequência e o que desfazer ficam numa máquina de estados só ([`contrato/saga-estados.yaml`](contrato/saga-estados.yaml)), em vez de espalhados pelos assinantes de eventos.
+- **O orquestrador mora dentro do OS Service**, porque a OS já é dona do ciclo de vida e do status; um quarto serviço só para guardar esse estado não se paga.
+- **Participantes não se conhecem**: Billing e Execução recebem comando e respondem, sem saber da Saga.
+- **Visibilidade**: o estado e o histórico de cada Saga são consultáveis (`GET /api/v1/ordens-servico/{id}/saga/`), e o trace distribuído liga os três serviços no New Relic.
+
+Compensação, na ordem inversa do que já foi feito ([diagramas](docs/fluxo-saga.md#compensação)):
+
+| Falha | O orquestrador desfaz |
+|---|---|
+| Orçamento falhou, ou cliente recusou | nada (Saga cancelada) |
+| Pagamento recusado | `CancelarOrcamento` |
+| Cliente não respondeu no prazo ([ADR-003](docs/adr-003-timeout-de-aprovacao.md)) | `CancelarOrcamento` |
+| Execução falhou ao iniciar | `EstornarPagamento` → `CancelarOrcamento` |
+| Execução falhou em andamento, ou cliente cancelou | `CancelarExecucao` → `EstornarPagamento` → `CancelarOrcamento` |
+
+Garantias: filas FIFO com `MessageGroupId = sagaId` (ordem por Saga), idempotência por `messageId` em todos os consumidores, outbox nos participantes (a resposta é gravada junto com a mudança de estado e publicada por um relay) e DLQ em cada fila. O pagamento é passo próprio da Saga, antes da execução ([ADR-002](docs/adr-002-pagamento-antes-da-execucao.md)).
+
+## Observabilidade
+
+Os três serviços rodam com o agente Python do New Relic (o mesmo da Fase 3) quando `NEW_RELIC_LICENSE_KEY` está definida. O contexto W3C (`traceparent`/`tracestate`) viaja nos MessageAttributes do SQS ([`tracing/propagacao-sqs.md`](tracing/propagacao-sqs.md)) e cada consumidor o aceita numa transação de background, então **uma Saga é um trace só**: da abertura HTTP no OS Service, passando pelo consumo dos comandos no Billing e na Execução, até o consumo das respostas no orquestrador. O `traceId` de cada mensagem também fica no histórico da consulta da Saga.
+
+Para achar o trace de uma OS no New Relic, pegue o `traceId` da consulta da Saga e rode:
+
+```sql
+SELECT count(*) FROM Transaction WHERE traceId = '<traceId>' FACET appName, name SINCE 1 day ago
+```
+
+Painel pronto e outras consultas NRQL (mensagens por tipo, compensações, DLQs) em [`observabilidade/`](observabilidade/consultas-nrql.md).
 
 ## O que tem aqui
 
@@ -12,7 +90,7 @@ Contrato de mensagens, documentação e testes ponta a ponta da **Saga orquestra
 | [`contrato/schemas/`](contrato/schemas) | JSON Schema (draft-07): `envelope`, `comum`, um schema por mensagem em `comandos/` e `respostas/` |
 | [`contrato/exemplos/`](contrato/exemplos) | Um exemplo válido por mensagem; `invalidos/` tem exemplos que **devem** ser rejeitados |
 | [`contrato/saga-estados.yaml`](contrato/saga-estados.yaml) | Tabela de transições do orquestrador (estados, gatilhos, comandos enviados); conferida pelo validador |
-| [`contrato/os-consulta-saga.openapi.yaml`](contrato/os-consulta-saga.openapi.yaml) | Rota de consulta da Saga que o `-os` implementa (`GET /api/v1/ordens-servico/{id}/saga`); é por onde o BDD contra a stack real observa o histórico |
+| [`contrato/os-consulta-saga.openapi.yaml`](contrato/os-consulta-saga.openapi.yaml) | Rota de consulta da Saga que o `-os` implementa (`GET /api/v1/ordens-servico/{id}/saga/`); é por onde o BDD contra a stack real observa o histórico |
 | [`contrato/billing-aprovacao.openapi.yaml`](contrato/billing-aprovacao.openapi.yaml) | Rota de aprovação do orçamento que o Billing implementa |
 | [`oficina_saga/`](oficina_saga) | Pacote Python: rastreio W3C (`rastreio`), adaptador do agente New Relic (`newrelic_adapter`), envelope (`envelope`) e carga da máquina de estados (`maquina`) |
 | [`tests/`](tests) | Testes do pacote, do criador de filas, do painel, das rotas OpenAPI e do motor da stack real |
@@ -44,7 +122,7 @@ Todo envio usa `MessageGroupId = sagaId` e `MessageDeduplicationId = messageId`.
 Cada mudança do contrato gera uma tag nova; instale pela tag:
 
 ```bash
-pip install "oficina-saga[newrelic,validacao] @ git+https://github.com/helyomendesdev/tech-challenge-oficina-saga@refs/tags/v1.0.0"
+pip install "oficina-saga[newrelic,validacao] @ git+https://github.com/helyomendesdev/tech-challenge-oficina-saga@refs/tags/v1.1.0"
 ```
 
 O extra `newrelic` só traz o agente; sem ele o adaptador cai no W3C puro de `oficina_saga.rastreio`. Detalhes de propagação em [`tracing/propagacao-sqs.md`](tracing/propagacao-sqs.md).
@@ -135,7 +213,18 @@ pytest -q                                            # tests/ + e2e/ (pytest.ini
 docker compose -f stack/docker-compose.yml config    # confere o compose da stack
 ```
 
-Para subir a stack e rodar o BDD contra ela: `docker compose -f stack/docker-compose.yml up -d --build --wait` e `SAGA_E2E_DRIVER=stack-real pytest -q e2e` (variáveis acima).
+Para subir a stack e rodar o BDD contra ela:
+
+```bash
+python stack/gerar_chaves_e2e.py   # chave de teste e senhas aleatorias em stack/.local/ (fora do git)
+docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml up -d --build --wait
+set -a; . stack/.local/e2e.env; set +a
+export SAGA_E2E_DRIVER=stack-real
+export SAGA_E2E_SIMULAR_PAGAMENTO_CMD='docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml exec -T billing python -m billing_service.cli simulate-payment --payment-id {payment_id} --outcome {outcome}'
+pytest -q e2e
+```
+
+Com `NEW_RELIC_LICENSE_KEY` exportada antes do `up`, os três serviços sobem sob o agente e o trace aparece no New Relic. Para testar a branch de um PR antes do merge, use `OS_GIT_URL`/`OS_GIT_REF`, `BILLING_GIT_URL`/`BILLING_GIT_REF` e `EXECUTION_GIT_URL`/`EXECUTION_GIT_REF`; detalhes e problemas conhecidos em [`stack/variaveis.md`](stack/variaveis.md). O mesmo roteiro roda no workflow manual [`e2e-stack-real.yml`](.github/workflows/e2e-stack-real.yml).
 
 A validação do AsyncAPI usa o CLI oficial via `npx` (versão fixada em [`.github/workflows/ci.yml`](.github/workflows/ci.yml)). A CI roda os mesmos passos e ainda falha se o `.feature` tiver step sem definição.
 
