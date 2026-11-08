@@ -78,6 +78,7 @@ repositorio (`stack/.local/` esta no `.gitignore`).
 | `SAGA_E2E_CLIENTE_CHAVE_PRIVADA` | driver | vazia | Caminho do PEM da chave **privada** de teste (`stack/.local/cliente-e2e.pem`, gerada pelo mesmo script). Com ela o driver assina o JWT do cliente (`iss oficina-auth`, `aud oficina-api`, `sub cliente:<id>`) com o `cliente_id` do Cliente que o -os criou na abertura. Vazia = cai em `SAGA_E2E_TOKEN`. |
 | `SAGA_E2E_TOKEN` | driver | vazia | Bearer fixo, usado so onde o login do atendente / a chave do cliente nao estao configurados. |
 | `SAGA_E2E_SIMULAR_PAGAMENTO_CMD` | driver | vazia | Comando que confirma o pagamento no Billing fake (que nao tem webhook). `{payment_id}` e `{outcome}` sao trocados; o driver espera o pagamento existir (`GET /api/v1/orcamentos/{id}/pagamento`) e roda o comando quando o passo `PagamentoConfirmado` (`approved`) ou `PagamentoFalhou` (`rejected`, so se o comando tiver `{outcome}`) acontece. Vazia = so espera, como antes. |
+| `SAGA_E2E_EXECUCAO_CLI` | driver | vazia | Prefixo que roda `python -m execution_service.cli` no Execution (sem HTTP): `docker compose ... exec -T execucao python -m execution_service.cli` no local, `kubectl exec -n <ns> deploy/<execucao> -- python -m execution_service.cli` no EKS. No passo da finalizacao o driver espera o `ExecucaoIniciada` e roda `start-service` e `finish-service` para cada servico da OS, com o `requestId` da Saga. Vazia = so espera. |
 | `APP_ENV`, `PAYMENT_PROVIDER` | billing | `development`, `fake` | Fixados no compose: `simulate-payment` so roda com os dois. |
 
 Passo a passo local:
@@ -88,6 +89,7 @@ docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml up -d
 set -a; . stack/.local/e2e.env; set +a
 export SAGA_E2E_DRIVER=stack-real
 export SAGA_E2E_SIMULAR_PAGAMENTO_CMD='docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml exec -T billing python -m billing_service.cli simulate-payment --payment-id {payment_id} --outcome {outcome}'
+export SAGA_E2E_EXECUCAO_CLI='docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml exec -T execucao python -m execution_service.cli'
 pytest -q e2e
 ```
 
