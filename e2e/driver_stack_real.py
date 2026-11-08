@@ -20,7 +20,7 @@ SAGA_E2E_INTERVALO_S (1) e as de autenticacao (stack/variaveis.md):
   configurados (sem ele nao vai cabecalho);
 - SAGA_E2E_SIMULAR_PAGAMENTO_CMD: comando que confirma o pagamento no Billing
   (fake nao tem webhook), com {payment_id} e {outcome}; sem ele so espera.
-- SAGA_E2E_EXECUCAO_CLI: prefixo que roda a CLI do Execution
+- SAGA_E2E_EXECUTION_CLI: prefixo que roda a CLI do Execution
   (`python -m execution_service.cli`) dentro do container ou do pod, por
   `docker compose exec -T execucao ...` ou `kubectl exec ... --`. O Execution nao
   tem HTTP: o mecanico inicia e finaliza cada servico pela CLI, e o ultimo
@@ -308,14 +308,14 @@ class DriverStackReal:
     # --- execucao ---------------------------------------------------------------
 
     def _executar_servicos(self):
-        """Inicia e finaliza cada servico da OS pela CLI do Execution, quando SAGA_E2E_EXECUCAO_CLI existe.
+        """Inicia e finaliza cada servico da OS pela CLI do Execution, quando SAGA_E2E_EXECUTION_CLI existe.
 
         Sem `record-consumption`: o driver nao conhece o itemPecaOSId, e
         `ExecucaoFinalizada` sem `pecasConsumidas` trata o reservado como
         consumido (ADR-004). O `--request-id` e o da Saga: a CLI o grava no
         `ExecucaoFinalizada`, e a correlacao exige um requestId so.
         """
-        prefixo = os.environ.get("SAGA_E2E_EXECUCAO_CLI", "").strip()
+        prefixo = os.environ.get("SAGA_E2E_EXECUTION_CLI", "").strip()
         if not prefixo:
             return
         assert self._servicos_ids, "a OS foi aberta sem servicos; nada a executar"

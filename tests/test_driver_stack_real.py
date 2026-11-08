@@ -358,7 +358,7 @@ def _apontar(stack, monkeypatch):
         "SAGA_E2E_ATENDENTE_PASSWORD",
         "SAGA_E2E_CLIENTE_CHAVE_PRIVADA",
         "SAGA_E2E_SIMULAR_PAGAMENTO_CMD",
-        "SAGA_E2E_EXECUCAO_CLI",
+        "SAGA_E2E_EXECUTION_CLI",
     ):
         monkeypatch.delenv(nome, raising=False)
 
@@ -740,7 +740,7 @@ _EXECUCAO_EM_ANDAMENTO = (
 def test_execucao_inicia_e_finaliza_cada_servico_pela_cli_com_o_request_id_da_saga(stack, monkeypatch, tmp_path):
     _apontar(stack, monkeypatch)
     comando, saida = _script_de_simulacao(tmp_path)
-    monkeypatch.setenv("SAGA_E2E_EXECUCAO_CLI", comando)
+    monkeypatch.setenv("SAGA_E2E_EXECUTION_CLI", comando)
     motor = _driver_com_orcamento_aprovado(stack, *_EXECUCAO_EM_ANDAMENTO, ("ExecucaoFinalizada", "RECEBIDA"))
     motor.acontece_resposta("ExecucaoFinalizada")
     args = f"--saga-id {SAGA_ID} --service-id 12 --request-id req-bdd-a1b2c3"
@@ -756,7 +756,7 @@ def test_sem_a_cli_configurada_a_execucao_so_espera(stack, monkeypatch, tmp_path
 def test_cli_so_roda_na_finalizacao_e_nao_no_execucao_iniciada(stack, monkeypatch, tmp_path):
     _apontar(stack, monkeypatch)
     comando, saida = _script_de_simulacao(tmp_path)
-    monkeypatch.setenv("SAGA_E2E_EXECUCAO_CLI", comando)
+    monkeypatch.setenv("SAGA_E2E_EXECUTION_CLI", comando)
     motor = _driver_com_orcamento_aprovado(stack, *_EXECUCAO_EM_ANDAMENTO)
     motor.acontece_resposta("ExecucaoIniciada")
     assert not saida.exists()
@@ -765,7 +765,7 @@ def test_cli_so_roda_na_finalizacao_e_nao_no_execucao_iniciada(stack, monkeypatc
 def test_cli_espera_o_execucao_iniciada_antes_de_trabalhar(stack, monkeypatch, tmp_path):
     _apontar(stack, monkeypatch)
     comando, saida = _script_de_simulacao(tmp_path)
-    monkeypatch.setenv("SAGA_E2E_EXECUCAO_CLI", comando)
+    monkeypatch.setenv("SAGA_E2E_EXECUTION_CLI", comando)
     motor = _driver_com_orcamento_aprovado(stack, ("IniciarExecucao", "ENVIADA"))
     with pytest.raises(AssertionError, match="ExecucaoIniciada chegar antes"):
         motor.acontece_resposta("ExecucaoFinalizada")
@@ -775,7 +775,7 @@ def test_cli_espera_o_execucao_iniciada_antes_de_trabalhar(stack, monkeypatch, t
 def test_cli_do_execution_que_falha_derruba_o_passo_com_a_saida(stack, monkeypatch, tmp_path):
     _apontar(stack, monkeypatch)
     comando, _ = _script_de_simulacao(tmp_path, codigo_de_saida=1)
-    monkeypatch.setenv("SAGA_E2E_EXECUCAO_CLI", comando)
+    monkeypatch.setenv("SAGA_E2E_EXECUTION_CLI", comando)
     motor = _driver_com_orcamento_aprovado(stack, *_EXECUCAO_EM_ANDAMENTO)
     with pytest.raises(AssertionError, match=r"CLI do Execution saiu com 1 .*start-service"):
         motor.acontece_resposta("ExecucaoFinalizada")
