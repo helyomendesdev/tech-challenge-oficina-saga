@@ -131,6 +131,27 @@ services:
       seed-os:
         condition: service_completed_successfully
 
+  # Drain da outbox da Saga (ADR-001, -os#24): o -os grava o comando em saga_comando na
+  # mesma transacao da transicao, e so este processo publica nas filas por destinatario.
+  # Sem ele nenhum comando sai do -os. Intervalo de 1 s com a outbox vazia, para o BDD.
+  os-publicador:
+    build: *build-os
+    image: oficina-os:local
+    command: ["python", "manage.py", "publicar_comandos_saga", "--loop", "--intervalo", "1"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      <<: *env-os
+      RUN_MIGRATIONS: "false"  # quem migra e o servico os
+    depends_on:
+      os:
+        condition: service_healthy
+      seed-os:
+        condition: service_completed_successfully
+
   # Seed one-shot do -os para o BDD: servico 12 e peca 40 (catalogo do Billing) e o atendente de demo.
   # ATENDENTE_PASSWORD vazio = o seed_atendente_demo nao cria o usuario (ver stack/variaveis.md).
   seed-os:
