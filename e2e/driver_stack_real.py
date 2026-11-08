@@ -20,6 +20,11 @@ SAGA_E2E_INTERVALO_S (1) e as de autenticacao (stack/variaveis.md):
   configurados (sem ele nao vai cabecalho);
 - SAGA_E2E_SIMULAR_PAGAMENTO_CMD: comando que confirma o pagamento no Billing
   (fake nao tem webhook), com {payment_id} e {outcome}; sem ele so espera.
+- SAGA_E2E_EXECUTION_CLI: prefixo que roda a CLI do Execution
+  (`python -m execution_service.cli`) dentro do container ou do pod, por
+  `docker compose exec -T execucao ...` ou `kubectl exec ... --`. O Execution nao
+  tem HTTP: o mecanico inicia e finaliza cada servico pela CLI, e o ultimo
+  `finish-service` gera o `ExecucaoFinalizada`. Sem ele o driver so espera.
 
 Antes da primeira chamada o driver espera `GET /health/ready/` do OS Service
 responder 200 (o -os ainda pode estar migrando), dentro do mesmo timeout.
@@ -111,6 +116,7 @@ class DriverStackReal:
         self._orcamento_id = None
         self._ultima_saga = None
         self._token_atendente_cache = None
+        self._servicos_ids = []
 
     # --- operacoes do DriverSaga -------------------------------------------------
 
@@ -124,6 +130,7 @@ class DriverStackReal:
     def iniciar_saga(self, *, cliente_id, veiculo_id, servicos, pecas):
         self._aguardar_prontidao()
         corpo = self._corpo_abertura(servicos, pecas)
+        self._servicos_ids = list(dict.fromkeys(corpo["servicos"]))
         status, resposta = self._http(
             "POST", self._os_url, _ROTA_ABERTURA, corpo, "OS Service", portador=self._token_atendente()
         )
@@ -158,6 +165,8 @@ class DriverStackReal:
     def acontece_resposta(self, tipo, *, motivo=None, codigo=None):
         self._avisar_nao_conferido(motivo=motivo, codigo=codigo)
         self._simular_pagamento(tipo)
+        if tipo == "ExecucaoFinalizada":
+            self._executar_servicos()
         self._esperar(f"a resposta {tipo} chegar ao orquestrador", lambda s: self._chegou(s, "RECEBIDA", tipo))
 
     def esperar_estado(self, estado_esperado):
@@ -294,6 +303,45 @@ class DriverStackReal:
         assert feito.returncode == 0, (
             f"a simulacao do pagamento {pagamento_id} ({desfecho}) saiu com {feito.returncode}: "
             f"{(feito.stderr or feito.stdout).strip()}"
+        )
+
+    # --- execucao ---------------------------------------------------------------
+
+    def _executar_servicos(self):
+        """Inicia e finaliza cada servico da OS pela CLI do Execution, quando SAGA_E2E_EXECUTION_CLI existe.
+
+        Sem `record-consumption`: o driver nao conhece o itemPecaOSId, e
+        `ExecucaoFinalizada` sem `pecasConsumidas` trata o reservado como
+        consumido (ADR-004). O `--request-id` e o da Saga: a CLI o grava no
+        `ExecucaoFinalizada`, e a correlacao exige um requestId so.
+        """
+        prefixo = os.environ.get("SAGA_E2E_EXECUTION_CLI", "").strip()
+        if not prefixo:
+            return
+        assert self._servicos_ids, "a OS foi aberta sem servicos; nada a executar"
+        saga = self._esperar(
+            "o ExecucaoIniciada chegar antes de o mecanico trabalhar",
+            lambda s: self._chegou(s, "RECEBIDA", "ExecucaoIniciada"),
+        )
+        request_ids = {m["requestId"] for m in saga["historico"]}
+        assert len(request_ids) == 1, f"mais de um requestId na Saga antes da execucao: {sorted(request_ids)}"
+        base = shlex.split(prefixo)
+        for servico_id in self._servicos_ids:
+            for acao in ("start-service", "finish-service"):
+                argv = base + [
+                    acao, "--saga-id", saga["sagaId"], "--service-id", str(servico_id),
+                    "--request-id", next(iter(request_ids)),
+                ]
+                self._rodar_cli_execucao(argv)
+
+    @staticmethod
+    def _rodar_cli_execucao(argv):
+        try:
+            feito = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as erro:
+            raise AssertionError(f"nao consegui rodar a CLI do Execution {argv}: {erro}") from erro
+        assert feito.returncode == 0, (
+            f"a CLI do Execution saiu com {feito.returncode} em {argv}: {(feito.stderr or feito.stdout).strip()}"
         )
 
     def _esperar_pagamento_id(self):

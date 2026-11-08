@@ -196,6 +196,7 @@ Variáveis do motor `stack-real` (todas opcionais):
 | `SAGA_E2E_ATENDENTE_USERNAME` / `SAGA_E2E_ATENDENTE_PASSWORD` | `atendente.demo` / vazia | Login do atendente no `-os` (`/api/v1/auth/token/`); o Bearer vai na abertura, na leitura da OS e na consulta da Saga |
 | `SAGA_E2E_CLIENTE_CHAVE_PRIVADA` | vazia | Caminho do PEM de teste (gerado por `stack/gerar_chaves_e2e.py`) com que o driver assina o JWT do cliente na aprovação do Billing |
 | `SAGA_E2E_SIMULAR_PAGAMENTO_CMD` | vazia | Comando que confirma o pagamento no Billing fake; sem ele o motor só espera |
+| `SAGA_E2E_EXECUTION_CLI` | vazia | Prefixo que roda a CLI do Execution (`docker compose exec -T execucao ...` ou `kubectl exec ... --`); o driver inicia e finaliza cada serviço por ela. Sem ele o motor só espera |
 | `SAGA_E2E_TIMEOUT_S` | `60` | Quanto esperar cada passo aparecer no histórico |
 | `SAGA_E2E_INTERVALO_S` | `1` | Intervalo entre consultas |
 
@@ -221,6 +222,7 @@ docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml up -d
 set -a; . stack/.local/e2e.env; set +a
 export SAGA_E2E_DRIVER=stack-real
 export SAGA_E2E_SIMULAR_PAGAMENTO_CMD='docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml exec -T billing python -m billing_service.cli simulate-payment --payment-id {payment_id} --outcome {outcome}'
+export SAGA_E2E_EXECUTION_CLI='docker compose --env-file stack/.local/e2e.env -f stack/docker-compose.yml exec -T execucao python -m execution_service.cli'
 pytest -q e2e
 ```
 
