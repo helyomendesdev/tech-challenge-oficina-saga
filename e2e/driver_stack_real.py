@@ -24,7 +24,8 @@ SAGA_E2E_INTERVALO_S (1) e as de autenticacao (stack/variaveis.md):
   (`python -m execution_service.cli`) dentro do container ou do pod, por
   `docker compose exec -T execucao ...` ou `kubectl exec ... --`. O Execution nao
   tem HTTP: o mecanico inicia e finaliza cada servico pela CLI, e o ultimo
-  `finish-service` gera o `ExecucaoFinalizada`. Sem ele o driver so espera.
+  `finish-service` gera o `ExecucaoFinalizada`; o `fail-service` gera o
+  `ExecucaoFalhou`. Sem ele o driver so espera.
 
 Antes da primeira chamada o driver espera `GET /health/ready/` do OS Service
 responder 200 (o -os ainda pode estar migrando), dentro do mesmo timeout.
@@ -49,14 +50,16 @@ import warnings
 from oficina_saga import maquina
 
 # Dados que provocam as falhas reais em cima do corpo base da abertura.
-# A COMBINAR COM BILLING E EXECUCAO: os valores abaixo sao marcadores, nao o
-# que a stack aceita hoje (cartao recusado do sandbox Mercado Pago; peca sem
-# estoque na Execucao).
+# A COMBINAR COM O BILLING: o cartao abaixo e marcador, nao o que a stack aceita
+# hoje (a recusa sai do SAGA_E2E_SIMULAR_PAGAMENTO_CMD). A falha na execucao nao
+# depende da abertura: o driver a registra pela CLI do Execution (fail-service).
 DADOS_DO_CENARIO = {
     "feliz": {},
     "falha-pagamento": {"pagamento": {"cartao": "CARTAO_RECUSADO_SANDBOX_MERCADO_PAGO"}},
-    "falha-execucao": {"pecas": [{"peca_id": 999999, "quantidade": 1}]},  # PECA_SEM_ESTOQUE
+    "falha-execucao": {},
 }
+
+_ERRO_SIMULADO = "falha registrada pelo mecanico no BDD"
 
 _ROTA_ABERTURA = "/api/v1/ordens-servico/abrir/"
 _ROTA_PRONTIDAO = "/health/ready/"
@@ -167,6 +170,8 @@ class DriverStackReal:
         self._simular_pagamento(tipo)
         if tipo == "ExecucaoFinalizada":
             self._executar_servicos()
+        elif tipo == "ExecucaoFalhou":
+            self._falhar_execucao(codigo)
         self._esperar(f"a resposta {tipo} chegar ao orquestrador", lambda s: self._chegou(s, "RECEBIDA", tipo))
 
     def esperar_estado(self, estado_esperado):
@@ -315,9 +320,39 @@ class DriverStackReal:
         consumido (ADR-004). O `--request-id` e o da Saga: a CLI o grava no
         `ExecucaoFinalizada`, e a correlacao exige um requestId so.
         """
+        contexto = self._contexto_da_execucao()
+        if contexto is None:
+            return
+        base, saga_id, request_id = contexto
+        for servico_id in self._servicos_ids:
+            for acao in ("start-service", "finish-service"):
+                argv = base + [acao, "--saga-id", saga_id, "--service-id", str(servico_id), "--request-id", request_id]
+                self._rodar_cli_execucao(argv)
+
+    def _falhar_execucao(self, codigo):
+        """Registra pela CLI (`fail-service`) a falha do primeiro servico da OS, que gera o `ExecucaoFalhou`.
+
+        O mecanico so trabalha depois do `ExecucaoIniciada`, entao a Saga ja esta
+        em EM_EXECUCAO: o orquestrador manda `CancelarExecucao`, o Execution
+        responde `ExecucaoCancelada` e a compensacao segue para o estorno
+        (contrato/saga-estados.yaml, trilha falha-em-execucao). O servico pode
+        falhar ainda pendente, sem `start-service` antes.
+        """
+        contexto = self._contexto_da_execucao()
+        if contexto is None:
+            return
+        base, saga_id, request_id = contexto
+        argv = base + [
+            "fail-service", "--saga-id", saga_id, "--service-id", str(self._servicos_ids[0]),
+            "--request-id", request_id, "--error-code", codigo or "EXECUCAO_FALHOU", "--error-message", _ERRO_SIMULADO,
+        ]
+        self._rodar_cli_execucao(argv)
+
+    def _contexto_da_execucao(self):
+        """(prefixo da CLI, sagaId, requestId) depois do `ExecucaoIniciada`; None sem SAGA_E2E_EXECUTION_CLI."""
         prefixo = os.environ.get("SAGA_E2E_EXECUTION_CLI", "").strip()
         if not prefixo:
-            return
+            return None
         assert self._servicos_ids, "a OS foi aberta sem servicos; nada a executar"
         saga = self._esperar(
             "o ExecucaoIniciada chegar antes de o mecanico trabalhar",
@@ -325,14 +360,7 @@ class DriverStackReal:
         )
         request_ids = {m["requestId"] for m in saga["historico"]}
         assert len(request_ids) == 1, f"mais de um requestId na Saga antes da execucao: {sorted(request_ids)}"
-        base = shlex.split(prefixo)
-        for servico_id in self._servicos_ids:
-            for acao in ("start-service", "finish-service"):
-                argv = base + [
-                    acao, "--saga-id", saga["sagaId"], "--service-id", str(servico_id),
-                    "--request-id", next(iter(request_ids)),
-                ]
-                self._rodar_cli_execucao(argv)
+        return shlex.split(prefixo), saga["sagaId"], next(iter(request_ids))
 
     @staticmethod
     def _rodar_cli_execucao(argv):

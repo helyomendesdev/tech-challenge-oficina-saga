@@ -581,10 +581,11 @@ def test_cada_abertura_gera_documento_e_placa_novos(stack, driver):
     # a fixture `stack` tambem confere CPF e placa validos e sem repeticao (erros_de_corpo)
 
 
-def test_cenario_de_falha_na_execucao_manda_a_peca_com_peca_id(stack, driver):
+def test_cenario_de_falha_na_execucao_abre_a_os_com_as_pecas_do_feature(stack, driver):
     driver.usar_cenario("falha-execucao")
     driver.iniciar_saga(cliente_id=7, veiculo_id=15, **ITENS)
-    assert stack.aberturas[-1][0]["pecas"] == [{"peca_id": 999999, "quantidade": 1}]
+    pecas_do_feature = [{"peca_id": p["pecaId"], "quantidade": p["quantidade"]} for p in ITENS["pecas"]]
+    assert stack.aberturas[-1][0]["pecas"] == pecas_do_feature  # a falha sai da CLI, nao de peca inventada
 
 
 def test_cliente_id_vem_da_leitura_da_os_e_nao_do_dado_do_feature(stack, com_atendente):
@@ -779,6 +780,44 @@ def test_cli_do_execution_que_falha_derruba_o_passo_com_a_saida(stack, monkeypat
     motor = _driver_com_orcamento_aprovado(stack, *_EXECUCAO_EM_ANDAMENTO)
     with pytest.raises(AssertionError, match=r"CLI do Execution saiu com 1 .*start-service"):
         motor.acontece_resposta("ExecucaoFinalizada")
+
+
+def test_falha_na_execucao_registra_fail_service_com_o_codigo_do_passo(stack, monkeypatch, tmp_path):
+    _apontar(stack, monkeypatch)
+    comando, saida = _script_de_simulacao(tmp_path)
+    monkeypatch.setenv("SAGA_E2E_EXECUTION_CLI", comando)
+    motor = _driver_com_orcamento_aprovado(stack, *_EXECUCAO_EM_ANDAMENTO, ("ExecucaoFalhou", "RECEBIDA"))
+    with pytest.warns(UserWarning, match="codigo"):  # a consulta nao expoe o codigo; o aviso continua
+        motor.acontece_resposta("ExecucaoFalhou", codigo="PECA_SEM_ESTOQUE")
+    assert saida.read_text(encoding="utf-8").splitlines() == [
+        f"fail-service --saga-id {SAGA_ID} --service-id 12 --request-id req-bdd-a1b2c3 "
+        "--error-code PECA_SEM_ESTOQUE --error-message falha registrada pelo mecanico no BDD"
+    ]
+
+
+def test_falha_sem_codigo_usa_execucao_falhou(stack, monkeypatch, tmp_path):
+    _apontar(stack, monkeypatch)
+    comando, saida = _script_de_simulacao(tmp_path)
+    monkeypatch.setenv("SAGA_E2E_EXECUTION_CLI", comando)
+    motor = _driver_com_orcamento_aprovado(stack, *_EXECUCAO_EM_ANDAMENTO, ("ExecucaoFalhou", "RECEBIDA"))
+    motor.acontece_resposta("ExecucaoFalhou")
+    assert "--error-code EXECUCAO_FALHOU " in saida.read_text(encoding="utf-8")
+
+
+def test_falha_espera_o_execucao_iniciada_antes_do_fail_service(stack, monkeypatch, tmp_path):
+    _apontar(stack, monkeypatch)
+    comando, saida = _script_de_simulacao(tmp_path)
+    monkeypatch.setenv("SAGA_E2E_EXECUTION_CLI", comando)
+    motor = _driver_com_orcamento_aprovado(stack, ("IniciarExecucao", "ENVIADA"))
+    with pytest.raises(AssertionError, match="ExecucaoIniciada chegar antes"):
+        motor.acontece_resposta("ExecucaoFalhou")
+    assert not saida.exists()
+
+
+def test_sem_a_cli_configurada_a_falha_so_espera(stack, monkeypatch):
+    _apontar(stack, monkeypatch)
+    motor = _driver_com_orcamento_aprovado(stack, *_EXECUCAO_EM_ANDAMENTO, ("ExecucaoFalhou", "RECEBIDA"))
+    motor.acontece_resposta("ExecucaoFalhou")  # nao estoura: so espera, como antes
 
 
 def test_cenario_desconhecido_e_recusado(driver):
