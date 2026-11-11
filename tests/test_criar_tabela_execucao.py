@@ -42,7 +42,7 @@ def _servicos():
 
 
 def test_compose_entrega_ao_execution_as_variaveis_que_ele_le():
-    # Nomes lidos em execution_service/config.py (feat/execution-service)
+    # Nomes lidos em execution_service/config.py (main do -execution)
     env = _servicos()["execucao"]["environment"]
     for nome in ("EXECUTION_COMMANDS_QUEUE_URL", "SAGA_RESPONSES_QUEUE_URL",
                  "EXECUTION_DYNAMODB_TABLE", "AWS_REGION", "AWS_ENDPOINT_URL"):
@@ -64,3 +64,10 @@ def test_compose_sobe_o_consumidor_de_respostas_do_os():
         assert "oficina-os-saga-respostas.fifo" in servicos[nome]["environment"]["SAGA_RESPONSE_QUEUE_URL"]
     assert "consumir_respostas_saga" in servicos["os-consumidor"]["command"]
     assert servicos["os-consumidor"]["environment"]["RUN_MIGRATIONS"] == "false"
+
+
+def test_compose_constroi_o_execution_da_main():
+    # feat/execution-service foi apagada no merge do -execution#3; ref que nao
+    # existe derruba o build da stack inteira.
+    build = _servicos()["execucao"]["build"]
+    assert build.endswith("#${EXECUTION_GIT_REF:-main}"), build

@@ -239,9 +239,7 @@ services:
         condition: service_completed_successfully
 
   execucao:
-    # O codigo do Execution ainda esta na branch feat/execution-service (a main so
-    # tem esqueleto, sem Dockerfile). Trocar o padrao para main depois do merge.
-    build: ${EXECUTION_GIT_URL:-https://github.com/helyomendesdev/tech-challenge-oficina-execution.git}#${EXECUTION_GIT_REF:-feat/execution-service}
+    build: ${EXECUTION_GIT_URL:-https://github.com/helyomendesdev/tech-challenge-oficina-execution.git}#${EXECUTION_GIT_REF:-main}
     environment:
       <<: [*aws, *newrelic]
       NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME_EXECUCAO:-oficina-execucao}
