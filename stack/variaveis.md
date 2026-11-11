@@ -52,8 +52,8 @@ na mesma imagem: desde o -os#24 (outbox do ADR-001) o `os` so grava o comando
 em `saga_comando`, e quem publica nas filas e esse drain. Sem ele nenhum
 comando sai do -os e a Saga para na abertura.
 
-O Execution e construido de `feat/execution-service` (`EXECUTION_GIT_REF`),
-porque a `main` dele ainda nao tem codigo nem Dockerfile.
+O Execution e construido da `main` (`EXECUTION_GIT_REF`, padrao `main`), como o
+-os e o Billing.
 
 O -os e o Billing tambem aceitam ref: `OS_GIT_URL` (padrao o repo do -os) e
 `OS_GIT_REF` (padrao `main`) servem para testar um PR antes do merge, por exemplo
